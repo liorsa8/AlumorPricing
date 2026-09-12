@@ -6,7 +6,10 @@ export default function AppShell() {
   return (
     <div className="app-shell">
       <aside className="app-nav">
-        <h1>AlumorPricing</h1>
+        <div className="app-brand">
+          <img src="/logo.png" alt="" className="app-logo" />
+          <h1>AlumorPricing</h1>
+        </div>
         <div className="subtitle">הצעות מחיר לחלונות ודלתות</div>
         <nav>
           <NavLink to="/" className={navLinkClass} end>

@@ -54,9 +54,22 @@ textarea {
   padding: 20px 16px;
 }
 
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.app-logo {
+  height: 28px;
+  width: auto;
+  border-radius: 4px;
+}
+
 .app-nav h1 {
   font-size: 18px;
-  margin: 0 0 4px;
+  margin: 0;
 }
 
 .app-nav .subtitle {
