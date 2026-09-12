@@ -52,6 +52,9 @@ export interface Settings {
   company_name: string;
   company_phone: string;
   company_address: string;
+  company_email: string;
+  company_tax_id: string;
+  company_logo: string;
   standard_terms: string;
 }
 

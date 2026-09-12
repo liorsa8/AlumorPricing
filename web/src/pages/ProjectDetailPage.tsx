@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Customer, GlassType, Opening, OpeningType, ProfileSystem, ProjectDetail } from '../api/types';
 import { formatCurrency, STATUS_LABELS } from '../lib/format';
+import { openGmailShare, openWhatsAppShare } from '../lib/shareQuote';
 
 const emptyOpeningForm = {
   opening_type_id: '',
@@ -126,6 +127,10 @@ export default function ProjectDetailPage() {
     onSuccess: () => navigate('/'),
   });
 
+  function handlePrint() {
+    window.open(`/projects/${projectId}/print?autoprint=1`, '_blank');
+  }
+
   function startEditOpening(o: Opening) {
     setEditingOpeningId(o.id);
     setOpeningForm({
@@ -167,8 +172,17 @@ export default function ProjectDetailPage() {
         </h2>
         <div>
           <Link className="btn" to={`/projects/${project.id}/print`} target="_blank">
-            תצוגה להדפסה
+            תצוגה מקדימה
           </Link>{' '}
+          <button className="btn" onClick={() => openWhatsAppShare(project)}>
+            וואטסאפ
+          </button>{' '}
+          <button className="btn" onClick={() => openGmailShare(project)}>
+            Gmail
+          </button>{' '}
+          <button className="btn" onClick={handlePrint}>
+            הדפס / שמור כ-PDF
+          </button>{' '}
           <button
             className="btn btn-danger"
             onClick={() => {
@@ -186,7 +200,13 @@ export default function ProjectDetailPage() {
             <label>לקוח</label>
             <select
               value={headerForm.customer_id}
-              onChange={(e) => setHeaderForm({ ...headerForm, customer_id: e.target.value })}
+              onChange={(e) => {
+                if (e.target.value === '__new__') {
+                  navigate('/customers');
+                  return;
+                }
+                setHeaderForm({ ...headerForm, customer_id: e.target.value });
+              }}
               onBlur={() => saveHeaderMutation.mutate()}
             >
               <option value="">בחר לקוח...</option>
@@ -195,6 +215,7 @@ export default function ProjectDetailPage() {
                   {c.name}
                 </option>
               ))}
+              <option value="__new__">+ הוספת לקוח חדש</option>
             </select>
           </div>
           <div className="field">

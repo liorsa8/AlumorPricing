@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Settings } from '../api/types';
+import { resizeImageToDataUrl } from '../lib/imageResize';
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -17,9 +18,13 @@ export default function SettingsPage() {
     company_name: '',
     company_phone: '',
     company_address: '',
+    company_email: '',
+    company_tax_id: '',
+    company_logo: '',
     standard_terms: '',
   });
   const [saved, setSaved] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
 
   useEffect(() => {
     if (settings) {
@@ -30,6 +35,9 @@ export default function SettingsPage() {
         company_name: settings.company_name,
         company_phone: settings.company_phone,
         company_address: settings.company_address,
+        company_email: settings.company_email,
+        company_tax_id: settings.company_tax_id,
+        company_logo: settings.company_logo,
         standard_terms: settings.standard_terms,
       });
     }
@@ -44,6 +52,9 @@ export default function SettingsPage() {
         company_name: form.company_name,
         company_phone: form.company_phone,
         company_address: form.company_address,
+        company_email: form.company_email,
+        company_tax_id: form.company_tax_id,
+        company_logo: form.company_logo,
         standard_terms: form.standard_terms,
       }),
     onSuccess: () => {
@@ -52,6 +63,19 @@ export default function SettingsPage() {
       setTimeout(() => setSaved(false), 2000);
     },
   });
+
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setLogoError(null);
+    try {
+      const dataUrl = await resizeImageToDataUrl(file);
+      setForm((f) => ({ ...f, company_logo: dataUrl }));
+    } catch {
+      setLogoError('טעינת הלוגו נכשלה, נסו קובץ אחר');
+    }
+  }
 
   return (
     <div>
@@ -111,12 +135,57 @@ export default function SettingsPage() {
             />
           </div>
           <div className="field">
+            <label>אימייל</label>
+            <input
+              value={form.company_email}
+              onChange={(e) => setForm({ ...form, company_email: e.target.value })}
+            />
+          </div>
+          <div className="field">
             <label>כתובת</label>
             <input
               value={form.company_address}
               onChange={(e) => setForm({ ...form, company_address: e.target.value })}
             />
           </div>
+          <div className="field">
+            <label>ח.פ / עוסק מורשה</label>
+            <input
+              value={form.company_tax_id}
+              onChange={(e) => setForm({ ...form, company_tax_id: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div className="field" style={{ maxWidth: 320 }}>
+          <label>לוגו</label>
+          {form.company_logo && (
+            <img
+              src={form.company_logo}
+              alt="לוגו החברה"
+              style={{
+                maxHeight: 80,
+                maxWidth: '100%',
+                objectFit: 'contain',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius)',
+                padding: 6,
+                background: '#fff',
+              }}
+            />
+          )}
+          <input type="file" accept="image/*" onChange={handleLogoChange} />
+          {form.company_logo && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{ alignSelf: 'flex-start' }}
+              onClick={() => setForm((f) => ({ ...f, company_logo: '' }))}
+            >
+              הסרת לוגו
+            </button>
+          )}
+          {logoError && <div className="error-text">{logoError}</div>}
         </div>
 
         <h3>הערות ותנאים קבועים (מופיעים בתחתית ההצעה המודפסת)</h3>
@@ -133,6 +202,31 @@ export default function SettingsPage() {
           שמור הגדרות
         </button>
         {saved && <span style={{ marginInlineStart: 10, color: 'var(--color-success)' }}>נשמר ✓</span>}
+
+        <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
+          <label
+            style={{
+              fontSize: 11,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: 'var(--color-text-muted)',
+              fontWeight: 700,
+            }}
+          >
+            אודות
+          </label>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: 14,
+              marginTop: 8,
+            }}
+          >
+            <span className="text-muted">גרסה</span>
+            <span style={{ fontWeight: 700 }}>{__APP_VERSION__}</span>
+          </div>
+        </div>
       </div>
     </div>
   );

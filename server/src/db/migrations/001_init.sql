@@ -56,6 +56,9 @@ CREATE TABLE IF NOT EXISTS settings (
   company_name TEXT NOT NULL DEFAULT '',
   company_phone TEXT NOT NULL DEFAULT '',
   company_address TEXT NOT NULL DEFAULT '',
+  company_email TEXT NOT NULL DEFAULT '',
+  company_tax_id TEXT NOT NULL DEFAULT '',
+  company_logo TEXT NOT NULL DEFAULT '',
   standard_terms TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
