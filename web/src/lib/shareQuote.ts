@@ -13,8 +13,16 @@ export function buildQuoteShareText(project: ProjectDetail): { label: string; su
 
 // Rasterizes the given (already correctly RTL-shaped) quote node via html2canvas — this
 // captures the browser's own text layout as pixels rather than re-typesetting text through
-// a PDF library, which is how this stays Hebrew/bidi-safe. Returns a user-facing notice
-// string when it had to fall back to a plain download, or null on a native share / cancel.
+// a PDF library, which is how this stays Hebrew/bidi-safe — then hands the image to the OS
+// share sheet via the Web Share API, so the person can pick WhatsApp, Gmail, or anything else
+// installed and send it as a real attachment. There's no way for a web page to attach a file
+// directly into one specific app — wa.me/Gmail-compose links only ever carry text, that's a
+// hard platform limitation — a native share sheet is the only mechanism that can hand over an
+// actual file at all, which is also why this is one "שתף" button and not one per app: they'd
+// all just open the same sheet anyway.
+// Falls back to downloading the image (with a notice to attach it manually) where Web Share
+// isn't supported, mainly desktop browsers. Returns null on a native share / cancel, or the
+// notice string when it had to fall back to a download.
 export async function shareQuoteImage(node: HTMLElement, project: ProjectDetail): Promise<string | null> {
   const { label, summary } = buildQuoteShareText(project);
   const canvas = await html2canvas(node, { scale: 2, backgroundColor: '#ffffff' });
@@ -34,15 +42,4 @@ export async function shareQuoteImage(node: HTMLElement, project: ProjectDetail)
 
   downloadBlob(blob, file.name);
   return 'שיתוף ישיר לא נתמך בדפדפן זה — התמונה הורדה, ניתן לצרף אותה ידנית בוואטסאפ או ב-Gmail.';
-}
-
-export function openWhatsAppShare(project: ProjectDetail) {
-  const { summary } = buildQuoteShareText(project);
-  window.open(`https://wa.me/?text=${encodeURIComponent(summary)}`, '_blank');
-}
-
-export function openGmailShare(project: ProjectDetail) {
-  const { label, summary } = buildQuoteShareText(project);
-  const params = new URLSearchParams({ view: 'cm', fs: '1', su: label, body: summary });
-  window.open(`https://mail.google.com/mail/?${params.toString()}`, '_blank');
 }

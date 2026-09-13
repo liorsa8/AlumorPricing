@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Customer, GlassType, Opening, OpeningType, ProfileSystem, ProjectDetail } from '../api/types';
+import { Customer, GlassType, Opening, OpeningType, ProfileSystem, ProjectDetail, Settings } from '../api/types';
 import { formatCurrency, STATUS_LABELS } from '../lib/format';
-import { openGmailShare, openWhatsAppShare } from '../lib/shareQuote';
+import { shareQuoteImage } from '../lib/shareQuote';
+import PrintableQuote from '../components/PrintableQuote';
 
 const emptyOpeningForm = {
   opening_type_id: '',
@@ -46,7 +47,26 @@ export default function ProjectDetailPage() {
     queryFn: () => api.get<GlassType[]>('/api/glass-types'),
     enabled: isDraft,
   });
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.get<Settings>('/api/settings'),
+  });
   const invalidateProject = () => queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+  const shareNodeRef = useRef<HTMLDivElement>(null);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
+
+  // One "שתף" button, not one per app — hands the OS share sheet a real image of the quote,
+  // and the person picks WhatsApp/Gmail/anything else from there themselves (see
+  // shareQuoteImage for why a web page can't target one specific app with a file directly).
+  async function handleShare() {
+    if (!shareNodeRef.current || !project) return;
+    setShareNotice(null);
+    try {
+      setShareNotice(await shareQuoteImage(shareNodeRef.current, project));
+    } catch {
+      setShareNotice('שיתוף ההצעה נכשל, נסו שוב');
+    }
+  }
 
   const [headerForm, setHeaderForm] = useState({ customer_id: '', title: '', notes: '', discount_pct: '0' });
   useEffect(() => {
@@ -165,6 +185,12 @@ export default function ProjectDetailPage() {
 
   return (
     <div>
+      {/* Off-screen (not display:none — html2canvas needs it actually laid out) copy of the
+          quote, captured into an image when sharing it. */}
+      <div style={{ position: 'fixed', top: 0, insetInlineStart: '-9999px', width: 800 }} aria-hidden="true">
+        <PrintableQuote ref={shareNodeRef} project={project} settings={settings} />
+      </div>
+
       <div className="page-header">
         <h2>
           הצעת מחיר #{project.quote_number}{' '}
@@ -174,11 +200,8 @@ export default function ProjectDetailPage() {
           <Link className="btn" to={`/projects/${project.id}/print`} target="_blank">
             תצוגה מקדימה
           </Link>{' '}
-          <button className="btn" onClick={() => openWhatsAppShare(project)}>
-            וואטסאפ
-          </button>{' '}
-          <button className="btn" onClick={() => openGmailShare(project)}>
-            Gmail
+          <button className="btn" onClick={handleShare}>
+            שתף
           </button>{' '}
           <button className="btn" onClick={handlePrint}>
             הדפס / שמור כ-PDF
@@ -193,6 +216,11 @@ export default function ProjectDetailPage() {
           </button>
         </div>
       </div>
+      {shareNotice && (
+        <div className="text-muted" style={{ fontSize: 13, marginTop: -12, marginBottom: 12 }}>
+          {shareNotice}
+        </div>
+      )}
 
       <div className="card">
         <div className="form-grid">
