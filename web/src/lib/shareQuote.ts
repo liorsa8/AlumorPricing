@@ -1,6 +1,7 @@
 import html2canvas from 'html2canvas';
 import { ProjectDetail } from '../api/types';
 import { formatCurrency } from './format';
+import { downloadBlob } from './download';
 
 export function buildQuoteShareText(project: ProjectDetail): { label: string; summary: string } {
   const label = `הצעת מחיר #${project.quote_number}`;
@@ -31,12 +32,7 @@ export async function shareQuoteImage(node: HTMLElement, project: ProjectDetail)
     return null;
   }
 
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = file.name;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, file.name);
   return 'שיתוף ישיר לא נתמך בדפדפן זה — התמונה הורדה, ניתן לצרף אותה ידנית בוואטסאפ או ב-Gmail.';
 }
 

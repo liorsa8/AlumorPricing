@@ -1,10 +1,5 @@
 node_modules/
 dist/
 web/dist/
-server/dist/
-server/data/app.db
-server/data/app.db-journal
-server/data/app.db-wal
-server/data/app.db-shm
 *.log
 .DS_Store

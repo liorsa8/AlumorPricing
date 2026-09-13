@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Settings } from '../api/types';
 import { resizeImageToDataUrl } from '../lib/imageResize';
+import { exportBackup, importBackup } from '../lib/dataBackup';
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -25,6 +26,8 @@ export default function SettingsPage() {
   });
   const [saved, setSaved] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const [imported, setImported] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -74,6 +77,24 @@ export default function SettingsPage() {
       setForm((f) => ({ ...f, company_logo: dataUrl }));
     } catch {
       setLogoError('טעינת הלוגו נכשלה, נסו קובץ אחר');
+    }
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!confirm('ייבוא יחליף את כל הנתונים הקיימים באפליקציה (לקוחות, הצעות, קטלוג, הגדרות) בתוכן הקובץ. להמשיך?')) {
+      return;
+    }
+    setBackupError(null);
+    try {
+      await importBackup(file);
+      setImported(true);
+      queryClient.invalidateQueries();
+      setTimeout(() => setImported(false), 3000);
+    } catch {
+      setBackupError('קובץ הגיבוי לא תקין או פגום');
     }
   }
 
@@ -202,6 +223,22 @@ export default function SettingsPage() {
           שמור הגדרות
         </button>
         {saved && <span style={{ marginInlineStart: 10, color: 'var(--color-success)' }}>נשמר ✓</span>}
+
+        <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
+          <h3 style={{ marginTop: 0 }}>גיבוי ושחזור נתונים</h3>
+          <p className="text-muted" style={{ fontSize: 13, marginTop: 0 }}>
+            כל הנתונים נשמרים במכשיר הזה בלבד. מומלץ לייצא גיבוי מדי פעם, ולפני מעבר למכשיר אחר.
+          </p>
+          <button type="button" className="btn" onClick={() => exportBackup()}>
+            ייצוא גיבוי
+          </button>{' '}
+          <label className="btn" style={{ display: 'inline-flex', cursor: 'pointer' }}>
+            ייבוא מקובץ גיבוי
+            <input type="file" accept="application/json" onChange={handleImportFile} style={{ display: 'none' }} />
+          </label>
+          {imported && <span style={{ marginInlineStart: 10, color: 'var(--color-success)' }}>יובא בהצלחה ✓</span>}
+          {backupError && <div className="error-text">{backupError}</div>}
+        </div>
 
         <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
           <label
