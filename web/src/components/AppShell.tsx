@@ -9,11 +9,10 @@ export default function AppShell() {
   return (
     <div className="app-shell">
       <aside className="app-nav">
+        {/* In RTL flex layout, the first element in markup order sits on the right — the
+            toggle comes first so it lands on the same side as the rest of the nav, not the
+            far left. */}
         <div className="app-nav-header">
-          <div className="app-brand">
-            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="app-logo" />
-            <h1>AlumorPricing</h1>
-          </div>
           <button
             type="button"
             className="nav-toggle"
@@ -23,6 +22,10 @@ export default function AppShell() {
           >
             ☰
           </button>
+          <div className="app-brand">
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="app-logo" />
+            <h1>AlumorPricing</h1>
+          </div>
         </div>
         <div className="subtitle">הצעות מחיר לחלונות ודלתות</div>
         {/* Closing on any click inside is deliberate — every child here is a nav link, so
