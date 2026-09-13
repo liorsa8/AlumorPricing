@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { Settings } from '../api/types';
 import { resizeImageToDataUrl } from '../lib/imageResize';
 import { exportBackup, importBackup } from '../lib/dataBackup';
+import { exportCatalog } from '../lib/catalogExport';
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -238,6 +239,16 @@ export default function SettingsPage() {
           </label>
           {imported && <span style={{ marginInlineStart: 10, color: 'var(--color-success)' }}>יובא בהצלחה ✓</span>}
           {backupError && <div className="error-text">{backupError}</div>}
+        </div>
+
+        <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
+          <h3 style={{ marginTop: 0 }}>ייצוא קטלוג</h3>
+          <p className="text-muted" style={{ fontSize: 13, marginTop: 0 }}>
+            קובץ נפרד עם הקטלוג בלבד (מערכות פרופיל, סוגי זכוכית, אביזרים, סוגי פתחים) — בלי לקוחות והצעות. שימושי להעברת קטלוג למכשיר אחר, או לשמירת עותק לפני עדכון מחירים.
+          </p>
+          <button type="button" className="btn" onClick={() => exportCatalog()}>
+            ייצוא קטלוג
+          </button>
         </div>
 
         <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
