@@ -31,24 +31,32 @@ const project = {
       profile_system_series_code_snapshot: '7000',
       glass_type_name_snapshot: 'זכוכית כפולה',
     },
+    {
+      id: 2,
+      label: '',
+      width_mm: 900,
+      height_mm: 1500,
+      quantity: 2,
+      unit_subtotal: 300,
+      line_subtotal: 600,
+      opening_type_name_snapshot: 'חלון ציר',
+      profile_system_name_snapshot: 'קליל 4500',
+      profile_system_series_code_snapshot: '4500',
+      glass_type_name_snapshot: 'זכוכית בודדת',
+    },
   ],
 } as unknown as ProjectDetail;
 
-// The mobile stacked-card view (print.css) relies on each cell's data-label matching its
-// column header exactly — CSS reads it via content: attr(data-label), so nothing in
-// TypeScript catches the two drifting apart. If a header is renamed (or a column reordered)
-// without updating its cell's data-label, the mobile view silently shows the wrong label
-// next to each value, with no error anywhere.
+// By explicit request, the openings list on the quote must always be a real row-per-opening
+// table, on every screen size — not restacked into cards. This pins down the markup shape;
+// styles/print.css.test.ts pins down that no future CSS turns it back into cards.
 describe('PrintableQuote', () => {
-  it('gives every opening cell a data-label matching its column header, in order', () => {
+  it('renders the openings as a table with one row per opening', () => {
     const { container } = render(<PrintableQuote project={project} settings={undefined} />);
 
-    const openingsTable = container.querySelector('.print-table-wrap table')!;
-    const headers = Array.from(openingsTable.querySelectorAll('thead th')).map((th) => th.textContent);
-    const firstRowCells = Array.from(openingsTable.querySelectorAll('tbody tr:first-child td'));
-    const labels = firstRowCells.map((td) => td.getAttribute('data-label'));
-
-    expect(headers.length).toBeGreaterThan(0);
-    expect(labels).toEqual(headers);
+    const openingsTable = container.querySelector('.print-table-wrap table');
+    expect(openingsTable).not.toBeNull();
+    expect(openingsTable!.querySelectorAll('thead th').length).toBeGreaterThan(0);
+    expect(openingsTable!.querySelectorAll('tbody tr').length).toBe(project.openings.length);
   });
 });

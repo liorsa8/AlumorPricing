@@ -71,18 +71,18 @@ const PrintableQuote = forwardRef<HTMLDivElement, PrintableQuoteProps>(function 
           <tbody>
             {project.openings.map((o, idx) => (
               <tr key={o.id}>
-                <td data-label="#">{idx + 1}</td>
-                <td data-label="תיאור">
+                <td>{idx + 1}</td>
+                <td>
                   {o.opening_type_name_snapshot}
                   {o.label ? ` – ${o.label}` : ''}
                 </td>
-                <td data-label="סדרה">{o.profile_system_series_code_snapshot || o.profile_system_name_snapshot}</td>
-                <td data-label="זכוכית">{o.glass_type_name_snapshot}</td>
-                <td data-label='גובה (מ"מ)'>{o.height_mm}</td>
-                <td data-label='רוחב (מ"מ)'>{o.width_mm}</td>
-                <td data-label="כמות">{o.quantity}</td>
-                <td data-label="מחיר ליח'">{formatCurrency(o.unit_subtotal * lineDisplayFactor)}</td>
-                <td data-label='סה"כ'>{formatCurrency(o.line_subtotal * lineDisplayFactor)}</td>
+                <td>{o.profile_system_series_code_snapshot || o.profile_system_name_snapshot}</td>
+                <td>{o.glass_type_name_snapshot}</td>
+                <td>{o.height_mm}</td>
+                <td>{o.width_mm}</td>
+                <td>{o.quantity}</td>
+                <td>{formatCurrency(o.unit_subtotal * lineDisplayFactor)}</td>
+                <td>{formatCurrency(o.line_subtotal * lineDisplayFactor)}</td>
               </tr>
             ))}
           </tbody>
