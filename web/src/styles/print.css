@@ -74,14 +74,15 @@
   background: #f3f3f3;
 }
 
+/* Auto margin on a fixed-width box, not flex + justify-content: flex-end — the flex version
+   renders correctly in a real browser, but html2canvas (used for the "שתף" shared image)
+   doesn't reliably compute flex alignment under RTL, leaving this drifting toward center
+   instead of flush left. Plain box-model auto-margin is simple enough that it renders
+   correctly in both places. */
 .print-totals {
   margin-top: 16px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.print-totals table {
   width: 320px;
+  margin-inline-start: auto;
 }
 
 .print-totals td {
