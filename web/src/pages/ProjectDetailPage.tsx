@@ -186,8 +186,14 @@ export default function ProjectDetailPage() {
   return (
     <div>
       {/* Off-screen (not display:none — html2canvas needs it actually laid out) copy of the
-          quote, captured into an image when sharing it. */}
-      <div style={{ position: 'fixed', top: 0, insetInlineStart: '-9999px', width: 800 }} aria-hidden="true">
+          quote, captured into an image when sharing it. Always rendered at a fixed 800px —
+          "share-capture-node" tells print.css's mobile media query (which keys off the real
+          device viewport, not this element's own width) to leave it alone, see print.css. */}
+      <div
+        className="share-capture-node"
+        style={{ position: 'fixed', top: 0, insetInlineStart: '-9999px', width: 800 }}
+        aria-hidden="true"
+      >
         <PrintableQuote ref={shareNodeRef} project={project} settings={settings} />
       </div>
 

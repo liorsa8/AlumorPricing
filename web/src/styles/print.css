@@ -149,3 +149,20 @@
     min-width: 640px;
   }
 }
+
+/* The off-screen share-capture node (see ProjectDetailPage) is always rendered at a fixed
+   800px regardless of the real device viewport, but the media query above keys off that real
+   viewport, not this element's own width — so on a narrow phone it was incorrectly applying
+   anyway, forcing the totals table to overflow its 320px container so far the value column
+   rendered completely outside the captured image. Pin the capture node back to its normal
+   width-based layout, unconditionally, with a selector specific enough to always win.
+   (.print-header-row's leaked flex-wrap needs no matching override — inert at 800px, the
+   width its content is designed for; only rules that actually change rendering at that width
+   are listed here.) */
+.share-capture-node .print-page {
+  padding: 32px;
+}
+
+.share-capture-node .print-page table {
+  min-width: 0;
+}
