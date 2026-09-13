@@ -28,8 +28,11 @@ export default function AppShell() {
           </div>
         </div>
         <div className="subtitle">הצעות מחיר לחלונות ודלתות</div>
+        {/* Only meaningful on mobile, where nav becomes a slide-in drawer — tapping outside
+            it (on this backdrop) closes it, same as picking a link. */}
+        {menuOpen && <div className="nav-backdrop" onClick={() => setMenuOpen(false)} />}
         {/* Closing on any click inside is deliberate — every child here is a nav link, so
-            this collapses the mobile dropdown as soon as the user picks a destination. */}
+            this collapses the mobile drawer as soon as the user picks a destination. */}
         <nav className={menuOpen ? 'open' : ''} onClick={() => setMenuOpen(false)}>
           <NavLink to="/" className={navLinkClass} end>
             הצעות מחיר

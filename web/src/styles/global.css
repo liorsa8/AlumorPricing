@@ -336,15 +336,37 @@ tbody tr:hover {
     display: inline-flex;
   }
 
-  /* Collapsed by default on mobile — a full-height sidebar list doesn't fit above the
-     fold, so it opens as a dropdown from the toggle button instead. */
+  /* A full sidebar doesn't fit above the fold on mobile, so it becomes a drawer that
+     slides in from the right (the toggle's side) over the page, instead of pushing
+     content down like a dropdown would. */
   .app-nav nav {
-    display: none;
-    margin-top: 12px;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 260px;
+    max-width: 80vw;
+    margin: 0;
+    padding: 20px 16px;
+    background: var(--color-surface);
+    box-shadow: -4px 0 16px rgba(16, 24, 40, 0.15);
+    overflow-y: auto;
+    z-index: 100;
+    /* translateX isn't flipped by dir="rtl" — 100% reliably means "off to the right"
+       regardless of text direction, since the panel is already anchored via right: 0. */
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
   }
 
   .app-nav nav.open {
-    display: flex;
+    transform: translateX(0);
+  }
+
+  .nav-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(16, 24, 40, 0.4);
+    z-index: 99;
   }
 
   .app-nav a {
