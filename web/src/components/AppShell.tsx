@@ -7,7 +7,7 @@ export default function AppShell() {
     <div className="app-shell">
       <aside className="app-nav">
         <div className="app-brand">
-          <img src="/logo.png" alt="" className="app-logo" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="app-logo" />
           <h1>AlumorPricing</h1>
         </div>
         <div className="subtitle">הצעות מחיר לחלונות ודלתות</div>

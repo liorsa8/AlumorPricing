@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-האפליקציה תיפתח בכתובת `http://localhost:5173`.
+האפליקציה תיפתח בכתובת `http://localhost:5173/AlumorPricing/`.
 
 ## בנייה לשימוש (build)
 
@@ -19,7 +19,19 @@ npm run dev
 npm run build
 ```
 
-התוצאה היא אתר סטטי בתיקייה `web/dist` — ניתן להעלות אותו לכל שירות אחסון סטטי (למשל GitHub Pages / Cloudflare Pages), או להריץ אותו מקומית עם `npm run preview`.
+התוצאה היא אתר סטטי בתיקייה `web/dist`.
+
+## אחסון (GitHub Pages)
+
+הפרויקט כולל workflow מוכן ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)) שבונה ומפרסם את האתר אוטומטית ל-GitHub Pages בכל push ל-`main`.
+
+**הפעלה חד-פעמית**: ב-GitHub, בעמוד ה-repo → Settings → Pages → תחת "Build and deployment" בחרו Source = **GitHub Actions**. מרגע זה כל push ל-`main` יפרסם גרסה חדשה אוטומטית, בכתובת:
+
+```
+https://liorsa8.github.io/AlumorPricing/
+```
+
+כתובת זו כוללת HTTPS אמיתי מהיום הראשון (בחינם) — זו הכתובת שפותחים ב-iPhone/Android כדי להתקין את האפליקציה ("הוספה למסך הבית").
 
 ## גיבוי
 

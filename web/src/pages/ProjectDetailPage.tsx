@@ -128,7 +128,7 @@ export default function ProjectDetailPage() {
   });
 
   function handlePrint() {
-    window.open(`/projects/${projectId}/print?autoprint=1`, '_blank');
+    window.open(`#/projects/${projectId}/print?autoprint=1`, '_blank');
   }
 
   function startEditOpening(o: Opening) {

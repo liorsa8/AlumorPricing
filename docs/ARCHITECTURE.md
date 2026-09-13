@@ -124,16 +124,24 @@ Because each device's data is local and independent, `SettingsPage` has an expli
 
 ```bash
 npm install
-npm run dev      # Vite dev server on :5173 — that's the whole app
+npm run dev      # Vite dev server, app at http://localhost:5173/AlumorPricing/
 npm run build    # builds web/dist — a static site, deployable anywhere (no server needed)
 npm run preview  # serves the production build locally, for a final check before deploying
 ```
 
 There is no database file to back up on the filesystem — use the in-app export (above) instead.
 
+## Hosting (GitHub Pages)
+
+`.github/workflows/deploy.yml` builds and publishes `web/dist` to GitHub Pages on every push to `main` (one-time setup: repo Settings → Pages → Source = "GitHub Actions"). The deployed URL is `https://liorsa8.github.io/AlumorPricing/` — a real HTTPS domain, for free, with no server to run or maintain.
+
+This subpath (not the domain root) drives two deliberate choices elsewhere in the code:
+- **`web/vite.config.ts`** sets `base: '/AlumorPricing/'` unconditionally, so every built asset URL, and `web/public/manifest.json`'s `start_url`/`scope`/icon paths, resolve correctly under that prefix. Any hardcoded absolute path to a `public/` asset in a component (e.g. the nav logo in `AppShell.tsx`) has to go through `import.meta.env.BASE_URL` instead of a bare `/logo.png`, or it breaks under the subpath.
+- **`web/src/main.tsx`** uses React Router's `HashRouter`, not `BrowserRouter`. GitHub Pages is a static file host with no server-side rewrite rule to send a deep-link refresh (e.g. `/AlumorPricing/projects/5`) back to `index.html` — it would just 404. Keeping the route in the URL fragment (`#/projects/5`) means the file server only ever sees a request for `index.html` itself; all routing after that is client-side, so this works identically on any static host with zero extra config.
+
 ## Installing on a phone / offline use
 
-`web/public/manifest.json` + `web/public/sw.js` make the built app installable (iOS "Add to Home Screen", Android Chrome's "Install app" — the latter needs the whole app served over HTTPS). Because there's no server, `sw.js` now actually caches the app shell as it's fetched ("cache-as-you-go") — once opened once, the app keeps working fully offline, indefinitely, with no PC or network involved at all, since there's nothing left to reach.
+`web/public/manifest.json` + `web/public/sw.js` make the built app installable (iOS "Add to Home Screen", Android Chrome's "Install app" — the latter needs the whole app served over HTTPS, which GitHub Pages provides). Because there's no server, `sw.js` now actually caches the app shell as it's fetched ("cache-as-you-go") — once opened once, the app keeps working fully offline, indefinitely, with no PC or network involved at all, since there's nothing left to reach.
 
 ## Versioning
 
