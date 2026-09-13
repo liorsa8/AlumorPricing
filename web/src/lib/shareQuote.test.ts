@@ -85,6 +85,15 @@ describe('shareQuoteImage', () => {
     expect(share).toHaveBeenCalledWith(expect.objectContaining({ title: 'הצעת מחיר #1' }));
   });
 
+  it('rasterizes at 3x scale, not 2x — WhatsApp recompresses shared photos, and a higher-res source holds up better against that', async () => {
+    vi.mocked(html2canvas).mockResolvedValue(fakeCanvas(new Blob(['x'])));
+    stubNavigator({ canShare: vi.fn().mockReturnValue(true), share: vi.fn().mockResolvedValue(undefined) } as unknown as Navigator);
+
+    await shareQuoteImage({} as HTMLElement, project);
+
+    expect(html2canvas).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ scale: 3 }));
+  });
+
   it('treats a cancelled share sheet as done, not a failure', async () => {
     vi.mocked(html2canvas).mockResolvedValue(fakeCanvas(new Blob(['x'])));
     const abortError = Object.assign(new Error('cancelled'), { name: 'AbortError' });

@@ -25,7 +25,10 @@ export function buildQuoteShareText(project: ProjectDetail): { label: string; su
 // notice string when it had to fall back to a download.
 export async function shareQuoteImage(node: HTMLElement, project: ProjectDetail): Promise<string | null> {
   const { label, summary } = buildQuoteShareText(project);
-  const canvas = await html2canvas(node, { scale: 2, backgroundColor: '#ffffff' });
+  // scale: 3, not 2 — WhatsApp recompresses images sent as "photos" (lossy, quality-reduced),
+  // which hits fine text hardest. A higher-resolution source before that compression holds up
+  // noticeably better than one already sitting right at WhatsApp's typical downscale target.
+  const canvas = await html2canvas(node, { scale: 3, backgroundColor: '#ffffff' });
   const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) throw new Error('image generation failed');
   const file = new File([blob], `${label}.png`, { type: 'image/png' });
