@@ -143,6 +143,14 @@ This subpath (not the domain root) drives two deliberate choices elsewhere in th
 
 `web/public/manifest.json` + `web/public/sw.js` make the built app installable (iOS "Add to Home Screen", Android Chrome's "Install app" — the latter needs the whole app served over HTTPS, which GitHub Pages provides). Because there's no server, `sw.js` now actually caches the app shell as it's fetched ("cache-as-you-go") — once opened once, the app keeps working fully offline, indefinitely, with no PC or network involved at all, since there's nothing left to reach.
 
+## Testing
+
+```bash
+npm test   # vitest run
+```
+
+[Vitest](https://vitest.dev/), with [`fake-indexeddb`](https://github.com/dumbmatter/fake-indexeddb) polyfilling IndexedDB so `db/localApi.ts` can be exercised directly in Node — no browser needed. Two suites so far: `lib/quoteCalculator.test.ts` (the pricing math, pinned against hand-verified numbers) and `db/localApi.test.ts` (the empty-draft cleanup's grace period — it once deleted a quote out from under someone still actively building it, before the age check existed).
+
 ## Versioning
 
 `web/vite.config.ts` reads `web/package.json`'s `version` and injects it at build time as the `__APP_VERSION__` global (declared in `web/src/vite-env.d.ts`), shown under "אודות" (About) in `SettingsPage.tsx`. Bump `web/package.json`'s `version` field to change what's displayed.

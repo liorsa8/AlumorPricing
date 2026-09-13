@@ -460,14 +460,22 @@ async function repriceOpening(openingId: number) {
 }
 
 // A "new quote" is created immediately (so there's a page to build it on) with no customer
-// and no openings yet. If the shop owner backs out without entering either, that empty shell
-// has no value and would otherwise just accumulate in the list — quietly clean those up
-// whenever the list is viewed. Only ever removes drafts with NEITHER a customer NOR any
-// opening, so a quote the owner is mid-way through (has picked a customer, say, but hasn't
-// added a line item yet) is never touched.
+// and no openings yet — which is also exactly what it looks like for the first few moments
+// while the owner is actively filling in that very first opening. Sweeping on that alone
+// once deleted a quote out from under someone mid-edit (a background tab or refetch hit the
+// list while they were still typing). Only ever consider a draft once it's been sitting
+// untouched for a while, so an actively-open editing session can never be swept — and even
+// then, only remove one with NEITHER a customer NOR any opening; one with just a customer
+// picked, say, is left alone.
+const ABANDONED_DRAFT_AGE_MS = 10 * 60 * 1000;
+
 async function deleteEmptyAbandonedDrafts() {
+  const cutoff = new Date(Date.now() - ABANDONED_DRAFT_AGE_MS).toISOString();
   const draftRows = await db.projects.where('status').equals('draft').toArray();
-  const candidateIds = draftRows.filter((p) => p.customer_id == null).map((p) => p.id!);
+  // updated_at, not created_at — it's bumped on every real edit (title, notes, discount...),
+  // so a draft the owner is still typing into keeps resetting its own grace period even
+  // before it has a customer or an opening, not just in the first few moments after creation.
+  const candidateIds = draftRows.filter((p) => p.customer_id == null && p.updated_at < cutoff).map((p) => p.id!);
   if (!candidateIds.length) return;
   const openingRows = await db.openings.where('project_id').anyOf(candidateIds).toArray();
   const idsWithOpenings = new Set(openingRows.map((o) => o.project_id));
