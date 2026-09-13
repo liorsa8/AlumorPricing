@@ -95,15 +95,29 @@
   border-top: 2px solid #111;
 }
 
+/* Native <ol> markers don't reliably land on the right in RTL across browsers — rendering
+   the number ourselves via a counter, inside a flex row, sidesteps that: the first flex
+   child sits on the right in an RTL context (same reasoning as the nav-toggle fix), so the
+   number reliably renders right of its text regardless of browser marker-positioning quirks. */
 .print-terms {
   margin: 0;
-  padding-inline-start: 20px;
+  padding: 0;
+  list-style: none;
   font-size: 12px;
   color: #444;
+  counter-reset: terms;
 }
 
 .print-terms li {
+  counter-increment: terms;
+  display: flex;
+  gap: 4px;
   margin-bottom: 3px;
+}
+
+.print-terms li::before {
+  content: counter(terms) '.';
+  flex-shrink: 0;
 }
 
 @media print {
