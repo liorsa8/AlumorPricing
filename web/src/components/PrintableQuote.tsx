@@ -53,39 +53,41 @@ const PrintableQuote = forwardRef<HTMLDivElement, PrintableQuoteProps>(function 
         </div>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>תיאור</th>
-            <th>סדרה</th>
-            <th>זכוכית</th>
-            <th>גובה (מ"מ)</th>
-            <th>רוחב (מ"מ)</th>
-            <th>כמות</th>
-            <th>מחיר ליח'</th>
-            <th>סה"כ</th>
-          </tr>
-        </thead>
-        <tbody>
-          {project.openings.map((o, idx) => (
-            <tr key={o.id}>
-              <td>{idx + 1}</td>
-              <td>
-                {o.opening_type_name_snapshot}
-                {o.label ? ` – ${o.label}` : ''}
-              </td>
-              <td>{o.profile_system_series_code_snapshot || o.profile_system_name_snapshot}</td>
-              <td>{o.glass_type_name_snapshot}</td>
-              <td>{o.height_mm}</td>
-              <td>{o.width_mm}</td>
-              <td>{o.quantity}</td>
-              <td>{formatCurrency(o.unit_subtotal * lineDisplayFactor)}</td>
-              <td>{formatCurrency(o.line_subtotal * lineDisplayFactor)}</td>
+      <div className="print-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>תיאור</th>
+              <th>סדרה</th>
+              <th>זכוכית</th>
+              <th>גובה (מ"מ)</th>
+              <th>רוחב (מ"מ)</th>
+              <th>כמות</th>
+              <th>מחיר ליח'</th>
+              <th>סה"כ</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {project.openings.map((o, idx) => (
+              <tr key={o.id}>
+                <td>{idx + 1}</td>
+                <td>
+                  {o.opening_type_name_snapshot}
+                  {o.label ? ` – ${o.label}` : ''}
+                </td>
+                <td>{o.profile_system_series_code_snapshot || o.profile_system_name_snapshot}</td>
+                <td>{o.glass_type_name_snapshot}</td>
+                <td>{o.height_mm}</td>
+                <td>{o.width_mm}</td>
+                <td>{o.quantity}</td>
+                <td>{formatCurrency(o.unit_subtotal * lineDisplayFactor)}</td>
+                <td>{formatCurrency(o.line_subtotal * lineDisplayFactor)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <div className="print-totals">
         <table>

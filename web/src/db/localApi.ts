@@ -459,7 +459,24 @@ async function repriceOpening(openingId: number) {
   await applyPricingToOpening(opening.id!, computed, refs);
 }
 
+// A "new quote" is created immediately (so there's a page to build it on) with no customer
+// and no openings yet. If the shop owner backs out without entering either, that empty shell
+// has no value and would otherwise just accumulate in the list — quietly clean those up
+// whenever the list is viewed. Only ever removes drafts with NEITHER a customer NOR any
+// opening, so a quote the owner is mid-way through (has picked a customer, say, but hasn't
+// added a line item yet) is never touched.
+async function deleteEmptyAbandonedDrafts() {
+  const draftRows = await db.projects.where('status').equals('draft').toArray();
+  const candidateIds = draftRows.filter((p) => p.customer_id == null).map((p) => p.id!);
+  if (!candidateIds.length) return;
+  const openingRows = await db.openings.where('project_id').anyOf(candidateIds).toArray();
+  const idsWithOpenings = new Set(openingRows.map((o) => o.project_id));
+  const emptyIds = candidateIds.filter((id) => !idsWithOpenings.has(id));
+  if (emptyIds.length) await db.projects.bulkDelete(emptyIds);
+}
+
 addRoute('GET', '/projects', async (_p, query) => {
+  await deleteEmptyAbandonedDrafts();
   const status = query.get('status') ?? undefined;
   const rows = status ? await db.projects.where('status').equals(status).toArray() : await db.projects.toArray();
   rows.sort((a, b) => b.created_at.localeCompare(a.created_at));

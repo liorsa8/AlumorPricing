@@ -53,6 +53,10 @@
   margin: 20px 0 8px;
 }
 
+.print-table-wrap {
+  overflow-x: auto;
+}
+
 .print-page table {
   width: 100%;
   border-collapse: collapse;
@@ -108,5 +112,21 @@
   }
   .print-page {
     padding: 0;
+  }
+  .print-table-wrap {
+    overflow-x: visible;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .print-page {
+    padding: 16px;
+  }
+  .print-header-row {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .print-page table {
+    min-width: 640px;
   }
 }

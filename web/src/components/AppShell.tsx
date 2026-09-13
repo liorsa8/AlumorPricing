@@ -1,17 +1,33 @@
+import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) => (isActive ? 'active' : '');
 
 export default function AppShell() {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <div className="app-shell">
       <aside className="app-nav">
-        <div className="app-brand">
-          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="app-logo" />
-          <h1>AlumorPricing</h1>
+        <div className="app-nav-header">
+          <div className="app-brand">
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="app-logo" />
+            <h1>AlumorPricing</h1>
+          </div>
+          <button
+            type="button"
+            className="nav-toggle"
+            aria-label="תפריט"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            ☰
+          </button>
         </div>
         <div className="subtitle">הצעות מחיר לחלונות ודלתות</div>
-        <nav>
+        {/* Closing on any click inside is deliberate — every child here is a nav link, so
+            this collapses the mobile dropdown as soon as the user picks a destination. */}
+        <nav className={menuOpen ? 'open' : ''} onClick={() => setMenuOpen(false)}>
           <NavLink to="/" className={navLinkClass} end>
             הצעות מחיר
           </NavLink>
