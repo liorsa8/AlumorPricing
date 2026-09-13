@@ -126,7 +126,42 @@
     flex-wrap: wrap;
     gap: 4px;
   }
-  .print-page table {
-    min-width: 640px;
+
+  /* 9 columns can't fit a phone screen without either shrinking to unreadable or requiring
+     horizontal scrolling through a customer-facing document — neither looked good. Instead,
+     each opening becomes a small labeled card: the header row hides (each cell already
+     carries its own data-label), and every cell becomes its own labeled line. */
+  .print-table-wrap table,
+  .print-table-wrap thead,
+  .print-table-wrap tbody,
+  .print-table-wrap th,
+  .print-table-wrap td,
+  .print-table-wrap tr {
+    display: block;
+  }
+  .print-table-wrap thead {
+    display: none;
+  }
+  .print-table-wrap tbody tr {
+    margin-bottom: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .print-table-wrap td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    border: none;
+    border-bottom: 1px solid #eee;
+  }
+  .print-table-wrap td:last-child {
+    border-bottom: none;
+  }
+  .print-table-wrap td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #666;
+    flex-shrink: 0;
   }
 }
