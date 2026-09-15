@@ -1,40 +1,46 @@
 export type ProjectStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'archived';
 
 export interface ProfileSystem {
-  id: number;
+  id: string;
   name_he: string;
   series_code: string | null;
   manufacturer: string | null;
   price_per_meter: number;
   is_active: number;
+  // Present (true/false) only when read through a business's merged catalog view; absent when
+  // read through the admin-only /catalog/:kind endpoint. True means this row is a business-
+  // owned override shadowing a global item of the same id — offer "revert to default," not
+  // "delete," for it.
+  forked_from_global?: boolean;
 }
 
 export interface GlassType {
-  id: number;
+  id: string;
   name_he: string;
   thickness_mm: string | null;
   price_per_sqm: number;
   is_active: number;
+  forked_from_global?: boolean;
 }
 
 export interface Accessory {
-  id: number;
+  id: string;
   name_he: string;
   unit: string;
   price_per_unit: number;
   is_active: number;
+  forked_from_global?: boolean;
 }
 
 export interface OpeningTypeAccessoryLine {
-  id: number;
-  accessory_id: number;
+  accessory_id: string;
   name_he: string;
   price_per_unit: number;
   quantity: number;
 }
 
 export interface OpeningType {
-  id: number;
+  id: string;
   name_he: string;
   code: string;
   profile_factor: number;
@@ -42,10 +48,14 @@ export interface OpeningType {
   sort_order: number;
   is_active: number;
   accessories: OpeningTypeAccessoryLine[];
+  forked_from_global?: boolean;
 }
 
-export interface Settings {
-  id: 1;
+// A business is a signed-in user's "account" — its own letterhead + pricing defaults, replacing
+// what used to be the single global /settings row. A user can own more than one.
+export interface Business {
+  id: string;
+  owner_uid: string;
   labor_pct: number;
   installation_pct: number;
   vat_pct: number;
@@ -56,10 +66,11 @@ export interface Settings {
   company_tax_id: string;
   company_logo: string;
   standard_terms: string;
+  created_at: string;
 }
 
 export interface Customer {
-  id: number;
+  id: string;
   name: string;
   phone: string | null;
   email: string | null;
@@ -68,8 +79,8 @@ export interface Customer {
 }
 
 export interface ProjectListItem {
-  id: number;
-  customer_id: number | null;
+  id: string;
+  customer_id: string | null;
   customer_name: string | null;
   quote_number: number;
   title: string;
@@ -80,7 +91,7 @@ export interface ProjectListItem {
 
 export interface OpeningAccessoryLine {
   id: number;
-  accessory_id: number;
+  accessory_id: string;
   accessory_name_snapshot: string;
   quantity: number;
   price_per_unit_snapshot: number;
@@ -89,10 +100,10 @@ export interface OpeningAccessoryLine {
 
 export interface Opening {
   id: number;
-  project_id: number;
-  opening_type_id: number;
-  profile_system_id: number;
-  glass_type_id: number;
+  project_id: string;
+  opening_type_id: string;
+  profile_system_id: string;
+  glass_type_id: string;
   label: string;
   width_mm: number;
   height_mm: number;
@@ -111,8 +122,8 @@ export interface Opening {
 }
 
 export interface ProjectDetail {
-  id: number;
-  customer_id: number | null;
+  id: string;
+  customer_id: string | null;
   customer_name: string | null;
   customer_phone: string | null;
   customer_email: string | null;

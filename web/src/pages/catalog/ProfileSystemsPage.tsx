@@ -1,10 +1,13 @@
+import { useParams } from 'react-router-dom';
 import CatalogCrudPage from '../../components/CatalogCrudPage';
 
 export default function ProfileSystemsPage() {
+  const { businessId } = useParams<{ businessId: string }>();
   return (
     <CatalogCrudPage
       title="מערכות פרופיל"
-      endpoint="/api/profile-systems"
+      kind="profile-systems"
+      businessId={businessId!}
       queryKey="profile-systems"
       addButtonLabel="הוסף מערכת פרופיל"
       emptyStateLabel="אין עדיין מערכות פרופיל בקטלוג"

@@ -1,26 +1,35 @@
 import { Fragment, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { useCatalogAdminMode } from '../../lib/useCatalogAdminMode';
 import { Accessory, OpeningType } from '../../api/types';
 
 const emptyForm = { name_he: '', code: '', profile_factor: '', glass_area_ratio: '', sort_order: '0' };
 
+// Same admin-mode/fork/revert pattern as CatalogCrudPage — shared via useCatalogAdminMode —
+// with one extra query for the nested accessory kit editor, which the generic field-list form
+// doesn't model.
 export default function OpeningTypesPage() {
+  const { businessId } = useParams<{ businessId: string }>();
+  const { isAdmin, adminMode, setAdminMode, editingGlobal, endpoint } = useCatalogAdminMode('opening-types', businessId!);
+  const accessoriesEndpoint = editingGlobal ? '/catalog/accessories' : `/businesses/${businessId}/accessories`;
+
   const queryClient = useQueryClient();
   const { data: types = [] } = useQuery({
-    queryKey: ['opening-types'],
-    queryFn: () => api.get<OpeningType[]>('/api/opening-types'),
+    queryKey: ['opening-types', businessId, editingGlobal],
+    queryFn: () => api.get<OpeningType[]>(endpoint),
   });
   const { data: accessories = [] } = useQuery({
-    queryKey: ['accessories'],
-    queryFn: () => api.get<Accessory[]>('/api/accessories'),
+    queryKey: ['accessories', businessId, editingGlobal],
+    queryFn: () => api.get<Accessory[]>(accessoriesEndpoint),
   });
 
   const [form, setForm] = useState(emptyForm);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [kitEditingTypeId, setKitEditingTypeId] = useState<number | null>(null);
-  const [kitQuantities, setKitQuantities] = useState<Record<number, string>>({});
+  const [kitEditingTypeId, setKitEditingTypeId] = useState<string | null>(null);
+  const [kitQuantities, setKitQuantities] = useState<Record<string, string>>({});
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['opening-types'] });
 
@@ -35,7 +44,7 @@ export default function OpeningTypesPage() {
   }
 
   const createMutation = useMutation({
-    mutationFn: () => api.post('/api/opening-types', buildPayload()),
+    mutationFn: () => api.post(endpoint, buildPayload()),
     onSuccess: () => {
       setForm(emptyForm);
       invalidate();
@@ -44,7 +53,7 @@ export default function OpeningTypesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (id: number) => api.put(`/api/opening-types/${id}`, buildPayload()),
+    mutationFn: (id: string) => api.put(`${endpoint}/${id}`, buildPayload()),
     onSuccess: () => {
       setForm(emptyForm);
       setEditingId(null);
@@ -54,16 +63,16 @@ export default function OpeningTypesPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/opening-types/${id}`),
+    mutationFn: (id: string) => api.delete(`${endpoint}/${id}`),
     onSuccess: invalidate,
   });
 
   const saveKitMutation = useMutation({
-    mutationFn: (typeId: number) => {
+    mutationFn: (typeId: string) => {
       const items = Object.entries(kitQuantities)
-        .map(([accessoryId, qty]) => ({ accessory_id: Number(accessoryId), quantity: Number(qty) || 0 }))
+        .map(([accessoryId, qty]) => ({ accessory_id: accessoryId, quantity: Number(qty) || 0 }))
         .filter((i) => i.quantity > 0);
-      return api.put(`/api/opening-types/${typeId}/accessories`, { accessories: items });
+      return api.put(`${endpoint}/${typeId}/accessories`, { accessories: items });
     },
     onSuccess: () => {
       setKitEditingTypeId(null);
@@ -84,7 +93,7 @@ export default function OpeningTypesPage() {
 
   function openKitEditor(type: OpeningType) {
     setKitEditingTypeId(type.id);
-    const quantities: Record<number, string> = {};
+    const quantities: Record<string, string> = {};
     for (const line of type.accessories) quantities[line.accessory_id] = String(line.quantity);
     setKitQuantities(quantities);
   }
@@ -104,12 +113,28 @@ export default function OpeningTypesPage() {
     <div>
       <div className="page-header">
         <h2>סוגי פתחים (חלונות ודלתות)</h2>
+        {isAdmin && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+            <input
+              type="checkbox"
+              checked={adminMode}
+              onChange={(e) => {
+                setAdminMode(e.target.checked);
+                setEditingId(null);
+                setForm(emptyForm);
+                setKitEditingTypeId(null);
+              }}
+            />
+            עריכת הקטלוג הגלובלי (משפיע על כל העסקים)
+          </label>
+        )}
       </div>
 
       <div className="card">
         <p className="text-muted" style={{ marginTop: 0 }}>
           "מקדם פרופיל" = מטרים של פרופיל ליחידת שטח (מ"ר). "יחס זכוכית" = החלק היחסי של הפתח שהוא זכוכית
           (השאר מסגרת). ערכים אלה מוערכים על ידיכם ולא מדויקים גיאומטרית — כווננו אותם לפי הניסיון שלכם.
+          {!editingGlobal && ' עריכת סוג פתח מהקטלוג הגלובלי יוצרת עותק פרטי לעסק שלכם בלבד.'}
         </p>
         <form onSubmit={submit}>
           <div className="form-grid">
@@ -185,69 +210,73 @@ export default function OpeningTypesPage() {
               </tr>
             </thead>
             <tbody>
-              {types.map((type) => (
-                <Fragment key={type.id}>
-                  <tr style={{ opacity: type.is_active ? 1 : 0.5 }}>
-                    <td>{type.name_he}</td>
-                    <td className="numeric">{type.profile_factor}</td>
-                    <td className="numeric">{type.glass_area_ratio}</td>
-                    <td>
-                      {type.accessories.length === 0
-                        ? '—'
-                        : type.accessories.map((a) => `${a.quantity}× ${a.name_he}`).join(', ')}
-                    </td>
-                    <td style={{ whiteSpace: 'nowrap' }}>
-                      <button className="btn btn-sm" onClick={() => startEdit(type)}>
-                        עריכה
-                      </button>{' '}
-                      <button className="btn btn-sm" onClick={() => openKitEditor(type)}>
-                        אביזרים
-                      </button>{' '}
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => {
-                          if (confirm('למחוק את סוג הפתח?')) deleteMutation.mutate(type.id);
-                        }}
-                      >
-                        מחיקה
-                      </button>
-                    </td>
-                  </tr>
-                  {kitEditingTypeId === type.id && (
-                    <tr>
-                      <td colSpan={5}>
-                        <div className="card" style={{ margin: '8px 0', background: '#fafbfc' }}>
-                          <strong>אביזרי בסיס עבור "{type.name_he}"</strong>
-                          <div className="form-grid" style={{ marginTop: 10 }}>
-                            {accessories.map((acc) => (
-                              <div className="field" key={acc.id}>
-                                <label>{acc.name_he}</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={kitQuantities[acc.id] ?? '0'}
-                                  onChange={(e) =>
-                                    setKitQuantities({ ...kitQuantities, [acc.id]: e.target.value })
-                                  }
-                                />
-                              </div>
-                            ))}
-                          </div>
-                          <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => saveKitMutation.mutate(type.id)}
-                          >
-                            שמור אביזרים
-                          </button>{' '}
-                          <button className="btn btn-sm" onClick={() => setKitEditingTypeId(null)}>
-                            ביטול
-                          </button>
-                        </div>
+              {types.map((type) => {
+                const isFork = !editingGlobal && Boolean(type.forked_from_global);
+                return (
+                  <Fragment key={type.id}>
+                    <tr style={{ opacity: type.is_active ? 1 : 0.5 }}>
+                      <td>{type.name_he}</td>
+                      <td className="numeric">{type.profile_factor}</td>
+                      <td className="numeric">{type.glass_area_ratio}</td>
+                      <td>
+                        {type.accessories.length === 0
+                          ? '—'
+                          : type.accessories.map((a) => `${a.quantity}× ${a.name_he}`).join(', ')}
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <button className="btn btn-sm" onClick={() => startEdit(type)}>
+                          עריכה
+                        </button>{' '}
+                        <button className="btn btn-sm" onClick={() => openKitEditor(type)}>
+                          אביזרים
+                        </button>{' '}
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => {
+                            if (confirm(isFork ? 'לאפס את סוג הפתח לברירת המחדל הגלובלית?' : 'למחוק את סוג הפתח?'))
+                              deleteMutation.mutate(type.id);
+                          }}
+                        >
+                          {isFork ? 'איפוס לברירת מחדל' : 'מחיקה'}
+                        </button>
                       </td>
                     </tr>
-                  )}
-                </Fragment>
-              ))}
+                    {kitEditingTypeId === type.id && (
+                      <tr>
+                        <td colSpan={5}>
+                          <div className="card" style={{ margin: '8px 0', background: '#fafbfc' }}>
+                            <strong>אביזרי בסיס עבור "{type.name_he}"</strong>
+                            <div className="form-grid" style={{ marginTop: 10 }}>
+                              {accessories.map((acc) => (
+                                <div className="field" key={acc.id}>
+                                  <label>{acc.name_he}</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={kitQuantities[acc.id] ?? '0'}
+                                    onChange={(e) =>
+                                      setKitQuantities({ ...kitQuantities, [acc.id]: e.target.value })
+                                    }
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => saveKitMutation.mutate(type.id)}
+                            >
+                              שמור אביזרים
+                            </button>{' '}
+                            <button className="btn btn-sm" onClick={() => setKitEditingTypeId(null)}>
+                              ביטול
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         )}

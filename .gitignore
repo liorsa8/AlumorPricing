@@ -4,3 +4,9 @@ web/dist/
 *.log
 .DS_Store
 *.timestamp-*.mjs
+.env
+scripts/firebase-admin/service-account*.json
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/
