@@ -1,0 +1,93 @@
+rules_version = '2';
+
+// Security model, in one paragraph: every business-scoped document (customers, projects,
+// catalog overrides) carries its own owner_uid, denormalized at write time, so every rule
+// below is a flat equality check — no get() back to a parent business doc, which would cost
+// an extra read per row on every list query. The global catalog (catalog_*) is writable only
+// by the app's single admin, via a custom auth claim that nothing client-side can ever set.
+//
+// Draft-lock (businesses/{id}/projects/{id}, below) is the one place this matters beyond
+// convenience: with no server left, a bypassed UI — or literally the browser devtools console
+// talking to the Firestore SDK directly — is the only thing standing between a finalized
+// quote and someone mutating its line items. This rule is the actual enforcement; the
+// matching client-side check in firestoreApi.ts exists only to produce a friendlier error.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    function isOwner(ownerUid) {
+      return isSignedIn() && request.auth.uid == ownerUid;
+    }
+
+    match /users/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    match /businesses/{businessId} {
+      allow create: if isOwner(request.resource.data.owner_uid);
+      allow read, delete: if isOwner(resource.data.owner_uid);
+      allow update: if isOwner(resource.data.owner_uid)
+        && request.resource.data.owner_uid == resource.data.owner_uid;
+
+      match /customers/{customerId} {
+        allow create: if isOwner(request.resource.data.owner_uid);
+        allow read, update, delete: if isOwner(resource.data.owner_uid);
+      }
+
+      match /projects/{projectId} {
+        allow create: if isOwner(request.resource.data.owner_uid);
+        allow read, delete: if isOwner(resource.data.owner_uid);
+        // quote_number is immutable forever; openings/next_opening_id may only change while
+        // the project is still a draft — everything else (title, notes, customer_id,
+        // discount_pct, status itself) can change at any status, matching today's behavior.
+        allow update: if isOwner(resource.data.owner_uid)
+          && request.resource.data.quote_number == resource.data.quote_number
+          && (resource.data.status == 'draft'
+              || (request.resource.data.openings == resource.data.openings
+                  && request.resource.data.next_opening_id == resource.data.next_opening_id));
+      }
+
+      match /profile_systems_overrides/{id} {
+        allow create: if isOwner(request.resource.data.owner_uid);
+        allow read, update, delete: if isOwner(resource.data.owner_uid);
+      }
+      match /glass_types_overrides/{id} {
+        allow create: if isOwner(request.resource.data.owner_uid);
+        allow read, update, delete: if isOwner(resource.data.owner_uid);
+      }
+      match /accessories_overrides/{id} {
+        allow create: if isOwner(request.resource.data.owner_uid);
+        allow read, update, delete: if isOwner(resource.data.owner_uid);
+      }
+      match /opening_types_overrides/{id} {
+        allow create: if isOwner(request.resource.data.owner_uid);
+        allow read, update, delete: if isOwner(resource.data.owner_uid);
+      }
+    }
+
+    match /catalog_profile_systems/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /catalog_glass_types/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /catalog_accessories/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /catalog_opening_types/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

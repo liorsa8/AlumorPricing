@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Customer } from '../api/types';
@@ -6,17 +7,18 @@ import { Customer } from '../api/types';
 const emptyForm = { name: '', phone: '', email: '', address: '', notes: '' };
 
 export default function CustomersPage() {
+  const { businessId } = useParams<{ businessId: string }>();
   const queryClient = useQueryClient();
   const { data: customers = [] } = useQuery({
-    queryKey: ['customers'],
-    queryFn: () => api.get<Customer[]>('/api/customers'),
+    queryKey: ['customers', businessId],
+    queryFn: () => api.get<Customer[]>(`/businesses/${businessId}/customers`),
   });
 
   const [form, setForm] = useState(emptyForm);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['customers'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['customers', businessId] });
 
   function buildPayload() {
     return {
@@ -29,7 +31,7 @@ export default function CustomersPage() {
   }
 
   const createMutation = useMutation({
-    mutationFn: () => api.post('/api/customers', buildPayload()),
+    mutationFn: () => api.post(`/businesses/${businessId}/customers`, buildPayload()),
     onSuccess: () => {
       setForm(emptyForm);
       invalidate();
@@ -38,7 +40,7 @@ export default function CustomersPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (id: number) => api.put(`/api/customers/${id}`, buildPayload()),
+    mutationFn: (id: string) => api.put(`/businesses/${businessId}/customers/${id}`, buildPayload()),
     onSuccess: () => {
       setForm(emptyForm);
       setEditingId(null);
@@ -48,7 +50,7 @@ export default function CustomersPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/customers/${id}`),
+    mutationFn: (id: string) => api.delete(`/businesses/${businessId}/customers/${id}`),
     onSuccess: invalidate,
     onError: () => alert('לא ניתן למחוק לקוח שיש לו הצעות מחיר'),
   });

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Customer, GlassType, Opening, OpeningType, ProfileSystem, ProjectDetail, Settings } from '../api/types';
+import { Business, Customer, GlassType, Opening, OpeningType, ProfileSystem, ProjectDetail } from '../api/types';
 import { formatCurrency, STATUS_LABELS } from '../lib/format';
 import { shareQuoteImage } from '../lib/shareQuote';
 import PrintableQuote from '../components/PrintableQuote';
@@ -18,40 +18,40 @@ const emptyOpeningForm = {
 };
 
 export default function ProjectDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const projectId = Number(id);
+  const { businessId, id: projectId } = useParams<{ businessId: string; id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const base = `/businesses/${businessId}`;
 
   const { data: project } = useQuery({
-    queryKey: ['project', projectId],
-    queryFn: () => api.get<ProjectDetail>(`/api/projects/${projectId}`),
+    queryKey: ['project', businessId, projectId],
+    queryFn: () => api.get<ProjectDetail>(`${base}/projects/${projectId}`),
   });
   const { data: customers = [] } = useQuery({
-    queryKey: ['customers'],
-    queryFn: () => api.get<Customer[]>('/api/customers'),
+    queryKey: ['customers', businessId],
+    queryFn: () => api.get<Customer[]>(`${base}/customers`),
   });
   const isDraft = project?.status === 'draft';
   const { data: openingTypes = [] } = useQuery({
-    queryKey: ['opening-types'],
-    queryFn: () => api.get<OpeningType[]>('/api/opening-types'),
+    queryKey: ['opening-types', businessId],
+    queryFn: () => api.get<OpeningType[]>(`${base}/opening-types`),
     enabled: isDraft,
   });
   const { data: profileSystems = [] } = useQuery({
-    queryKey: ['profile-systems'],
-    queryFn: () => api.get<ProfileSystem[]>('/api/profile-systems'),
+    queryKey: ['profile-systems', businessId],
+    queryFn: () => api.get<ProfileSystem[]>(`${base}/profile-systems`),
     enabled: isDraft,
   });
   const { data: glassTypes = [] } = useQuery({
-    queryKey: ['glass-types'],
-    queryFn: () => api.get<GlassType[]>('/api/glass-types'),
+    queryKey: ['glass-types', businessId],
+    queryFn: () => api.get<GlassType[]>(`${base}/glass-types`),
     enabled: isDraft,
   });
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.get<Settings>('/api/settings'),
+  const { data: business } = useQuery({
+    queryKey: ['business', businessId],
+    queryFn: () => api.get<Business>(base),
   });
-  const invalidateProject = () => queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+  const invalidateProject = () => queryClient.invalidateQueries({ queryKey: ['project', businessId, projectId] });
   const shareNodeRef = useRef<HTMLDivElement>(null);
   const [shareNotice, setShareNotice] = useState<string | null>(null);
 
@@ -72,7 +72,7 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (project) {
       setHeaderForm({
-        customer_id: project.customer_id ? String(project.customer_id) : '',
+        customer_id: project.customer_id ?? '',
         title: project.title,
         notes: project.notes ?? '',
         discount_pct: String(project.discount_pct),
@@ -82,8 +82,8 @@ export default function ProjectDetailPage() {
 
   const saveHeaderMutation = useMutation({
     mutationFn: () =>
-      api.put(`/api/projects/${projectId}`, {
-        customer_id: headerForm.customer_id ? Number(headerForm.customer_id) : null,
+      api.put(`${base}/projects/${projectId}`, {
+        customer_id: headerForm.customer_id || null,
         title: headerForm.title,
         notes: headerForm.notes,
         discount_pct: Number(headerForm.discount_pct) || 0,
@@ -92,12 +92,12 @@ export default function ProjectDetailPage() {
   });
 
   const changeStatusMutation = useMutation({
-    mutationFn: (status: string) => api.put(`/api/projects/${projectId}`, { status }),
+    mutationFn: (status: string) => api.put(`${base}/projects/${projectId}`, { status }),
     onSuccess: invalidateProject,
   });
 
   const recalculateMutation = useMutation({
-    mutationFn: () => api.post(`/api/projects/${projectId}/recalculate`, {}),
+    mutationFn: () => api.post(`${base}/projects/${projectId}/recalculate`, {}),
     onSuccess: invalidateProject,
   });
 
@@ -107,9 +107,9 @@ export default function ProjectDetailPage() {
 
   function buildOpeningPayload() {
     return {
-      opening_type_id: Number(openingForm.opening_type_id),
-      profile_system_id: Number(openingForm.profile_system_id),
-      glass_type_id: Number(openingForm.glass_type_id),
+      opening_type_id: openingForm.opening_type_id,
+      profile_system_id: openingForm.profile_system_id,
+      glass_type_id: openingForm.glass_type_id,
       label: openingForm.label,
       width_mm: Number(openingForm.width_mm),
       height_mm: Number(openingForm.height_mm),
@@ -118,7 +118,7 @@ export default function ProjectDetailPage() {
   }
 
   const addOpeningMutation = useMutation({
-    mutationFn: () => api.post(`/api/projects/${projectId}/openings`, buildOpeningPayload()),
+    mutationFn: () => api.post(`${base}/projects/${projectId}/openings`, buildOpeningPayload()),
     onSuccess: () => {
       setOpeningForm(emptyOpeningForm);
       invalidateProject();
@@ -128,7 +128,7 @@ export default function ProjectDetailPage() {
 
   const updateOpeningMutation = useMutation({
     mutationFn: (openingId: number) =>
-      api.put(`/api/projects/${projectId}/openings/${openingId}`, buildOpeningPayload()),
+      api.put(`${base}/projects/${projectId}/openings/${openingId}`, buildOpeningPayload()),
     onSuccess: () => {
       setOpeningForm(emptyOpeningForm);
       setEditingOpeningId(null);
@@ -138,17 +138,17 @@ export default function ProjectDetailPage() {
   });
 
   const deleteOpeningMutation = useMutation({
-    mutationFn: (openingId: number) => api.delete(`/api/projects/${projectId}/openings/${openingId}`),
+    mutationFn: (openingId: number) => api.delete(`${base}/projects/${projectId}/openings/${openingId}`),
     onSuccess: invalidateProject,
   });
 
   const deleteProjectMutation = useMutation({
-    mutationFn: () => api.delete(`/api/projects/${projectId}`),
-    onSuccess: () => navigate('/'),
+    mutationFn: () => api.delete(`${base}/projects/${projectId}`),
+    onSuccess: () => navigate(`/b/${businessId}`),
   });
 
   function handlePrint() {
-    window.open(`#/projects/${projectId}/print?autoprint=1`, '_blank');
+    window.open(`#/b/${businessId}/projects/${projectId}/print?autoprint=1`, '_blank');
   }
 
   function startEditOpening(o: Opening) {
@@ -194,7 +194,7 @@ export default function ProjectDetailPage() {
         style={{ position: 'fixed', top: 0, insetInlineStart: '-9999px', width: 800 }}
         aria-hidden="true"
       >
-        <PrintableQuote ref={shareNodeRef} project={project} settings={settings} />
+        <PrintableQuote ref={shareNodeRef} project={project} settings={business} />
       </div>
 
       <div className="page-header">
@@ -203,7 +203,7 @@ export default function ProjectDetailPage() {
           <span className={`badge status-${project.status}`}>{STATUS_LABELS[project.status]}</span>
         </h2>
         <div>
-          <Link className="btn" to={`/projects/${project.id}/print`} target="_blank">
+          <Link className="btn" to={`/b/${businessId}/projects/${project.id}/print`} target="_blank">
             תצוגה מקדימה
           </Link>{' '}
           <button className="btn" onClick={handleShare}>
@@ -236,7 +236,7 @@ export default function ProjectDetailPage() {
               value={headerForm.customer_id}
               onChange={(e) => {
                 if (e.target.value === '__new__') {
-                  navigate('/customers');
+                  navigate(`/b/${businessId}/customers`);
                   return;
                 }
                 setHeaderForm({ ...headerForm, customer_id: e.target.value });

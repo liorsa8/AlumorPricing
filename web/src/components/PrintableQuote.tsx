@@ -1,11 +1,11 @@
 import { forwardRef } from 'react';
-import { ProjectDetail, Settings } from '../api/types';
+import { ProjectDetail, Business } from '../api/types';
 import { formatCurrency, formatDate } from '../lib/format';
 import '../styles/print.css';
 
 interface PrintableQuoteProps {
   project: ProjectDetail;
-  settings: Settings | undefined;
+  settings: Business | undefined;
 }
 
 // Pure presentational quote layout — used both for the read-only /print preview page and,

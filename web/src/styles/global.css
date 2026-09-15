@@ -125,6 +125,23 @@ textarea {
   color: var(--color-primary);
 }
 
+.app-nav .nav-signout {
+  color: var(--color-text);
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  background: none;
+  border: none;
+  text-align: inherit;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.app-nav .nav-signout:hover {
+  background: #eef2ff;
+  color: var(--color-primary);
+}
+
 .app-main {
   flex: 1;
   padding: 28px 32px;
