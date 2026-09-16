@@ -1,10 +1,18 @@
 rules_version = '2';
 
 // Security model, in one paragraph: every business-scoped document (customers, projects,
-// catalog overrides) carries its own owner_uid, denormalized at write time, so every rule
-// below is a flat equality check — no get() back to a parent business doc, which would cost
-// an extra read per row on every list query. The global catalog (catalog_*) is writable only
-// by the app's single admin, via a custom auth claim that nothing client-side can ever set.
+// catalog overrides) carries its own owner_uid, denormalized at write time, so read/update/
+// delete below is a flat equality check — no get() back to a parent business doc, which would
+// cost an extra read per row on every list query. `create`, however, DOES call get() on the
+// parent business doc (isBusinessOwner) — the one-time cost of that extra read on create is
+// worth it, because without it a signed-in user could setDoc a customer/project/override under
+// ANY business's id just by stamping their own uid as owner_uid, since nothing else in this
+// file ties a child document's path to who actually owns that business. The matching Firestore
+// queries in firestoreApi.ts filter on owner_uid too — a list query is only allowed to run at
+// all if it's provably restricted to documents the caller could read, so every list read under
+// businesses/{id}/... must carry a matching where('owner_uid', '==', uid) clause. The global
+// catalog (catalog_*) is writable only by the app's single admin, via a custom auth claim that
+// nothing client-side can ever set.
 //
 // Draft-lock (businesses/{id}/projects/{id}, below) is the one place this matters beyond
 // convenience: with no server left, a bypassed UI — or literally the browser devtools console
@@ -27,6 +35,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == ownerUid;
     }
 
+    // Only used on create: confirms businessId's OWN owner_uid (the parent doc, fetched once)
+    // matches the caller — the thing a flat isOwner(request.resource.data.owner_uid) check can
+    // never verify on its own, since that only checks the value the caller chose to write.
+    function isBusinessOwner(businessId) {
+      return isOwner(get(/databases/$(database)/documents/businesses/$(businessId)).data.owner_uid);
+    }
+
     match /users/{uid} {
       allow read, write: if isSignedIn() && request.auth.uid == uid;
     }
@@ -38,12 +53,12 @@ service cloud.firestore {
         && request.resource.data.owner_uid == resource.data.owner_uid;
 
       match /customers/{customerId} {
-        allow create: if isOwner(request.resource.data.owner_uid);
+        allow create: if isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
         allow read, update, delete: if isOwner(resource.data.owner_uid);
       }
 
       match /projects/{projectId} {
-        allow create: if isOwner(request.resource.data.owner_uid);
+        allow create: if isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
         allow read, delete: if isOwner(resource.data.owner_uid);
         // quote_number is immutable forever; openings/next_opening_id may only change while
         // the project is still a draft — everything else (title, notes, customer_id,
@@ -56,19 +71,19 @@ service cloud.firestore {
       }
 
       match /profile_systems_overrides/{id} {
-        allow create: if isOwner(request.resource.data.owner_uid);
+        allow create: if isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
         allow read, update, delete: if isOwner(resource.data.owner_uid);
       }
       match /glass_types_overrides/{id} {
-        allow create: if isOwner(request.resource.data.owner_uid);
+        allow create: if isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
         allow read, update, delete: if isOwner(resource.data.owner_uid);
       }
       match /accessories_overrides/{id} {
-        allow create: if isOwner(request.resource.data.owner_uid);
+        allow create: if isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
         allow read, update, delete: if isOwner(resource.data.owner_uid);
       }
       match /opening_types_overrides/{id} {
-        allow create: if isOwner(request.resource.data.owner_uid);
+        allow create: if isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
         allow read, update, delete: if isOwner(resource.data.owner_uid);
       }
     }

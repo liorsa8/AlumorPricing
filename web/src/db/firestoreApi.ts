@@ -11,6 +11,7 @@ import {
   runTransaction,
   writeBatch,
   CollectionReference,
+  Query,
   DocumentData,
 } from 'firebase/firestore';
 import { db as firestore, auth } from './firebaseConfig';
@@ -224,13 +225,25 @@ const globalCol = (kind: SimpleCatalogKind | 'opening-types') => collection(fire
 const overridesCol = (businessId: string, kind: SimpleCatalogKind | 'opening-types') =>
   collection(firestore, 'businesses', businessId, `${CATALOG_COLLECTION_NAME[kind]}_overrides`);
 
-async function readCollection<T extends { id: string }>(col: CollectionReference<DocumentData>): Promise<T[]> {
+async function readCollection<T extends { id: string }>(col: CollectionReference<DocumentData> | Query<DocumentData>): Promise<T[]> {
   const snap = await getDocs(col);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T);
 }
 
+// Reads of a business-scoped collection (customers, projects, catalog overrides) MUST filter
+// on owner_uid: firestore.rules gates read on a per-document owner_uid equality check, and a
+// multi-document query is only allowed to run at all if it's provably restricted to documents
+// the caller could read — a query with no matching where('owner_uid', ...) clause is rejected
+// outright with permission-denied, even for the legitimate owner.
+function ownScopedCol(col: CollectionReference<DocumentData>): Query<DocumentData> {
+  return query(col, where('owner_uid', '==', currentUid()));
+}
+
 async function readMergedCatalog<T extends CatalogItemRow>(businessId: string, kind: SimpleCatalogKind | 'opening-types'): Promise<T[]> {
-  const [globalItems, overrides] = await Promise.all([readCollection<T>(globalCol(kind)), readCollection<T>(overridesCol(businessId, kind))]);
+  const [globalItems, overrides] = await Promise.all([
+    readCollection<T>(globalCol(kind)),
+    readCollection<T>(ownScopedCol(overridesCol(businessId, kind))),
+  ]);
   const merged = mergeCatalog(globalItems, overrides);
   merged.sort((a, b) => a.name_he.localeCompare(b.name_he));
   return merged;
@@ -255,7 +268,7 @@ async function resolveMergedItem<T extends CatalogItemRow>(
 
 addRoute('GET', '/businesses', async () => {
   const q = query(collection(firestore, 'businesses'), where('owner_uid', '==', currentUid()));
-  const rows = await readCollection<BusinessRow>(q as unknown as CollectionReference<DocumentData>);
+  const rows = await readCollection<BusinessRow>(q);
   rows.sort((a, b) => a.created_at.localeCompare(b.created_at));
   return rows;
 });
@@ -313,7 +326,7 @@ addRoute('PUT', '/businesses/:businessId', async (p, _q, body: any) => {
 // ---- Customers ----
 
 addRoute('GET', '/businesses/:businessId/customers', async (p) => {
-  const rows = await readCollection<CustomerRow>(customersCol(p.businessId));
+  const rows = await readCollection<CustomerRow>(ownScopedCol(customersCol(p.businessId)));
   rows.sort((a, b) => a.name.localeCompare(b.name));
   return rows;
 });
@@ -358,7 +371,13 @@ addRoute('DELETE', '/businesses/:businessId/customers/:id', async (p) => {
   // Intentionally app-layer-only, unlike the draft-lock in firestore.rules: an owner bypassing
   // this could only ever corrupt their own business's data (an orphaned customer_id on their
   // own project), never another business's, so there's no matching security rule for it.
-  const referenced = (await getDocs(query(projectsCol(p.businessId), where('customer_id', '==', p.id)))).size > 0;
+  // Also intentionally NOT a transaction: Firestore transactions can only tx.get() individual
+  // documents, never run a query, so this check-then-act still has a narrow race window (a
+  // concurrent PUT could point a project at this customer between the check and the delete,
+  // below) that would need a denormalized reference counter to close properly.
+  const referenced = (
+    await getDocs(query(projectsCol(p.businessId), where('owner_uid', '==', currentUid()), where('customer_id', '==', p.id)))
+  ).size > 0;
   if (referenced) throw new ApiError('customer_has_projects');
   await deleteDoc(customerDoc(p.businessId, p.id));
   return { deleted: true };
@@ -424,29 +443,32 @@ function registerGlobalSimpleCatalogRoutes(kind: SimpleCatalogKind, fields: stri
 
 for (const cfg of SIMPLE_CATALOG_CONFIGS) registerGlobalSimpleCatalogRoutes(cfg.kind, cfg.fields);
 
-async function getDraftOpenings(businessId: string): Promise<OpeningEntry[]> {
-  const snap = await getDocs(query(projectsCol(businessId), where('status', '==', 'draft')));
+// Every project's openings, regardless of status — a catalog item can still be referenced by a
+// FINALIZED quote's frozen opening, not just a draft one, and hard-deleting an override that's
+// still referenced anywhere would leave that project's opening pointing at a nonexistent doc.
+async function getAllOpenings(businessId: string): Promise<OpeningEntry[]> {
+  const snap = await getDocs(ownScopedCol(projectsCol(businessId)));
   const openings: OpeningEntry[] = [];
   snap.docs.forEach((d) => openings.push(...((d.data() as ProjectRow).openings ?? [])));
   return openings;
 }
 
 // Both referenced-checks below are intentionally app-layer-only, same reasoning as
-// customer_has_projects above: bypassing them can only ever corrupt this business's own draft
-// data (a dangling catalog reference in one of its own openings), never another business's or
-// a finalized quote's — so unlike the draft-lock, there's no matching firestore.rules check.
+// customer_has_projects above: bypassing them can only ever corrupt this business's own
+// data (a dangling catalog reference in one of its own openings), never another business's —
+// so unlike the draft-lock, there's no matching firestore.rules check.
 async function isReferencedInBusinessDrafts(
   businessId: string,
   field: 'profile_system_id' | 'glass_type_id',
   id: string
 ): Promise<boolean> {
-  const openings = await getDraftOpenings(businessId);
+  const openings = await getAllOpenings(businessId);
   return openings.some((o) => o[field] === id);
 }
 
 async function isAccessoryReferenced(businessId: string, id: string): Promise<boolean> {
   const [openings, openingTypes] = await Promise.all([
-    getDraftOpenings(businessId),
+    getAllOpenings(businessId),
     readMergedCatalog<OpeningTypeRow>(businessId, 'opening-types'),
   ]);
   if (openings.some((o) => o.accessory_lines.some((a) => a.accessory_id === id))) return true;
@@ -683,7 +705,7 @@ addRoute('DELETE', '/businesses/:businessId/opening-types/:id', async (p) => {
   const overrideRef = doc(overridesCol(p.businessId, 'opening-types'), p.id);
   const existing = await getDoc(overrideRef);
   if (!existing.exists()) throw new ApiError('not_found');
-  const openings = await getDraftOpenings(p.businessId);
+  const openings = await getAllOpenings(p.businessId);
   if (openings.some((o) => o.opening_type_id === p.id)) {
     await updateDoc(overrideRef, { is_active: 0, updated_at: nowIso() });
     return { deactivated: true };
@@ -844,7 +866,13 @@ const ABANDONED_DRAFT_AGE_MS = 10 * 60 * 1000;
 async function deleteEmptyAbandonedDrafts(businessId: string) {
   const cutoff = new Date(Date.now() - ABANDONED_DRAFT_AGE_MS).toISOString();
   const snap = await getDocs(
-    query(projectsCol(businessId), where('status', '==', 'draft'), where('customer_id', '==', null), where('updated_at', '<', cutoff))
+    query(
+      projectsCol(businessId),
+      where('owner_uid', '==', currentUid()),
+      where('status', '==', 'draft'),
+      where('customer_id', '==', null),
+      where('updated_at', '<', cutoff)
+    )
   );
   const emptyDocs = snap.docs.filter((d) => ((d.data() as ProjectRow).openings ?? []).length === 0);
   if (!emptyDocs.length) return;
@@ -854,14 +882,22 @@ async function deleteEmptyAbandonedDrafts(businessId: string) {
 }
 
 addRoute('GET', '/businesses/:businessId/projects', async (p, q) => {
-  await deleteEmptyAbandonedDrafts(p.businessId);
   const status = q.get('status') ?? undefined;
-  const base = status ? query(projectsCol(p.businessId), where('status', '==', status)) : projectsCol(p.businessId);
-  const rows = await readCollection<ProjectRow>(base as unknown as CollectionReference<DocumentData>);
+  const constraints = [where('owner_uid', '==', currentUid())];
+  if (status) constraints.push(where('status', '==', status));
+  const projectsQuery = query(projectsCol(p.businessId), ...constraints);
+
+  // The cleanup sweep, the projects read, and the customer-name lookup are all independent —
+  // running them in parallel instead of one after another shaves two round trips off the
+  // single most-visited page's load time.
+  const [, rows, customers] = await Promise.all([
+    deleteEmptyAbandonedDrafts(p.businessId),
+    readCollection<ProjectRow>(projectsQuery),
+    // One read of the whole (small, per-business) customer list beats one getDoc per distinct
+    // customer_id on the projects list — a page every business owner hits constantly.
+    readCollection<CustomerRow>(ownScopedCol(customersCol(p.businessId))),
+  ]);
   rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
-  // One read of the whole (small, per-business) customer list beats one getDoc per distinct
-  // customer_id on the projects list — a page every business owner hits constantly.
-  const customers = await readCollection<CustomerRow>(customersCol(p.businessId));
   const nameById = new Map(customers.map((c) => [c.id, c.name]));
   return rows.map((r) => ({ ...r, customer_name: r.customer_id ? (nameById.get(r.customer_id) ?? null) : null }));
 });
@@ -915,41 +951,48 @@ addRoute('POST', '/businesses/:businessId/projects', async (p, _q, body: any) =>
 
 addRoute('PUT', '/businesses/:businessId/projects/:id', async (p, _q, body: any) => {
   const ref = projectDoc(p.businessId, p.id);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) throw new ApiError('not_found');
-  const existing = snap.data() as ProjectRow;
 
-  const status = body.status ?? existing.status;
-  const discountPct = body.discount_pct ?? existing.discount_pct;
+  // Transactional so this can't race the opening-mutation transactions below: without it, a
+  // concurrent opening add/edit/delete that lands between this route's read and its write would
+  // have its totals silently overwritten by the stale totals computed here.
+  await runTransaction(firestore, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new ApiError('not_found');
+    const existing = snap.data() as ProjectRow;
 
-  let laborPct = existing.labor_pct_snapshot;
-  let installationPct = existing.installation_pct_snapshot;
-  let vatPct = existing.vat_pct_snapshot;
-  if (status === 'draft') {
-    const biz = (await getDoc(businessDoc(p.businessId))).data() as BusinessRow;
-    laborPct = biz.labor_pct;
-    installationPct = biz.installation_pct;
-    vatPct = biz.vat_pct;
-  }
-  const totals = computeProjectTotals(
-    (existing.openings ?? []).reduce((sum, o) => sum + o.line_subtotal, 0),
-    laborPct,
-    installationPct,
-    discountPct,
-    vatPct
-  );
+    const status = body.status ?? existing.status;
+    const discountPct = body.discount_pct ?? existing.discount_pct;
 
-  await updateDoc(ref, {
-    customer_id: body.customer_id !== undefined ? body.customer_id : existing.customer_id,
-    title: body.title ?? existing.title,
-    notes: body.notes ?? existing.notes,
-    status,
-    discount_pct: discountPct,
-    labor_pct_snapshot: laborPct,
-    installation_pct_snapshot: installationPct,
-    vat_pct_snapshot: vatPct,
-    ...totals,
-    updated_at: nowIso(),
+    let laborPct = existing.labor_pct_snapshot;
+    let installationPct = existing.installation_pct_snapshot;
+    let vatPct = existing.vat_pct_snapshot;
+    if (status === 'draft') {
+      const bizSnap = await tx.get(businessDoc(p.businessId));
+      const biz = bizSnap.data() as BusinessRow;
+      laborPct = biz.labor_pct;
+      installationPct = biz.installation_pct;
+      vatPct = biz.vat_pct;
+    }
+    const totals = computeProjectTotals(
+      (existing.openings ?? []).reduce((sum, o) => sum + o.line_subtotal, 0),
+      laborPct,
+      installationPct,
+      discountPct,
+      vatPct
+    );
+
+    tx.update(ref, {
+      customer_id: body.customer_id !== undefined ? body.customer_id : existing.customer_id,
+      title: body.title ?? existing.title,
+      notes: body.notes ?? existing.notes,
+      status,
+      discount_pct: discountPct,
+      labor_pct_snapshot: laborPct,
+      installation_pct_snapshot: installationPct,
+      vat_pct_snapshot: vatPct,
+      ...totals,
+      updated_at: nowIso(),
+    });
   });
 
   return loadProjectDetail(p.businessId, p.id);
@@ -963,46 +1006,52 @@ addRoute('DELETE', '/businesses/:businessId/projects/:id', async (p) => {
   return { deleted: true };
 });
 
+async function repriceOpening(businessId: string, o: OpeningEntry): Promise<OpeningEntry> {
+  const refs = await resolveOpeningRefs(businessId, o.opening_type_id, o.profile_system_id, o.glass_type_id);
+  if (!refs) return o;
+  const computed = priceOpening(refs, o.width_mm, o.height_mm, o.quantity);
+  return buildOpeningEntry(
+    o.id,
+    {
+      opening_type_id: o.opening_type_id,
+      profile_system_id: o.profile_system_id,
+      glass_type_id: o.glass_type_id,
+      label: o.label,
+      width_mm: o.width_mm,
+      height_mm: o.height_mm,
+      quantity: o.quantity,
+    },
+    computed,
+    refs,
+    o.created_at
+  );
+}
+
 addRoute('POST', '/businesses/:businessId/projects/:id/recalculate', async (p) => {
   const ref = projectDoc(p.businessId, p.id);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) throw new ApiError('not_found');
-  const project = snap.data() as ProjectRow;
-  if (project.status !== 'draft') throw new ApiError('project_not_draft');
 
-  const repriced: OpeningEntry[] = [];
-  for (const o of project.openings ?? []) {
-    const refs = await resolveOpeningRefs(p.businessId, o.opening_type_id, o.profile_system_id, o.glass_type_id);
-    if (!refs) {
-      repriced.push(o);
-      continue;
-    }
-    const computed = priceOpening(refs, o.width_mm, o.height_mm, o.quantity);
-    repriced.push(
-      buildOpeningEntry(
-        o.id,
-        {
-          opening_type_id: o.opening_type_id,
-          profile_system_id: o.profile_system_id,
-          glass_type_id: o.glass_type_id,
-          label: o.label,
-          width_mm: o.width_mm,
-          height_mm: o.height_mm,
-          quantity: o.quantity,
-        },
-        computed,
-        refs,
-        o.created_at
-      )
-    );
-  }
+  // Transactional, with the project re-read fresh inside: if a concurrent opening add/edit/
+  // delete lands mid-recalculation, Firestore retries this whole callback against the new
+  // state instead of letting a stale-based write silently discard that concurrent change.
+  await runTransaction(firestore, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new ApiError('not_found');
+    const project = snap.data() as ProjectRow;
+    if (project.status !== 'draft') throw new ApiError('project_not_draft');
 
-  const biz = (await getDoc(businessDoc(p.businessId))).data() as BusinessRow;
+    // Point lookups for every opening's catalog refs are independent of each other — resolving
+    // them in parallel instead of one-by-one avoids an N-round-trip chain on a project with
+    // many openings.
+    const repriced = await Promise.all((project.openings ?? []).map((o) => repriceOpening(p.businessId, o)));
 
-  await updateDoc(ref, {
-    openings: repriced,
-    ...repriceProject(repriced, biz, project.discount_pct),
-    updated_at: nowIso(),
+    const bizSnap = await tx.get(businessDoc(p.businessId));
+    const biz = bizSnap.data() as BusinessRow;
+
+    tx.update(ref, {
+      openings: repriced,
+      ...repriceProject(repriced, biz, project.discount_pct),
+      updated_at: nowIso(),
+    });
   });
 
   return loadProjectDetail(p.businessId, p.id);
@@ -1067,8 +1116,14 @@ addRoute('PUT', '/businesses/:businessId/projects/:projectId/openings/:id', asyn
     label: body.label ?? existingOpening.label,
     width_mm: body.width_mm ?? existingOpening.width_mm,
     height_mm: body.height_mm ?? existingOpening.height_mm,
-    quantity: body.quantity ?? existingOpening.quantity,
+    quantity: body.quantity && body.quantity > 0 ? body.quantity : existingOpening.quantity,
   };
+  // Same guard the create route applies — without it, editing width_mm/height_mm to 0 (falsy,
+  // so it survives the ?? above) would silently zero out this opening's line_subtotal and drag
+  // down the whole project's total with no error shown.
+  if (!merged.width_mm || !merged.height_mm || merged.width_mm <= 0 || merged.height_mm <= 0) {
+    throw new ApiError('invalid_dimensions');
+  }
 
   const refs = await resolveOpeningRefs(p.businessId, merged.opening_type_id, merged.profile_system_id, merged.glass_type_id);
   if (!refs) throw new ApiError('invalid_reference');
