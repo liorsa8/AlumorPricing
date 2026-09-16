@@ -91,11 +91,13 @@ export default function CatalogCrudPage({
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`${endpoint}/${id}`),
     onSuccess: invalidate,
+    onError: (e: Error) => setError(e.message),
   });
 
   const toggleActiveMutation = useMutation({
     mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) => api.put(`${endpoint}/${id}`, { is_active }),
     onSuccess: invalidate,
+    onError: (e: Error) => setError(e.message),
   });
 
   function startEdit(item: CatalogItem) {
@@ -218,7 +220,20 @@ export default function CatalogCrudPage({
                       </button>{' '}
                       <button
                         className="btn btn-sm"
-                        onClick={() => toggleActiveMutation.mutate({ id: item.id, is_active: !item.is_active })}
+                        onClick={() => {
+                          // Toggling an item that's still merged straight from the global catalog
+                          // forks it into a private, business-scoped copy (see the PUT handler in
+                          // firestoreApi.ts) — warn before silently detaching it from future
+                          // global catalog updates.
+                          if (
+                            !editingGlobal &&
+                            !isFork &&
+                            !confirm('שינוי הסטטוס ייצור עותק פרטי לעסק שלכם, שלא יתעדכן יותר אוטומטית מהקטלוג הגלובלי. להמשיך?')
+                          ) {
+                            return;
+                          }
+                          toggleActiveMutation.mutate({ id: item.id, is_active: !item.is_active });
+                        }}
                       >
                         {item.is_active ? 'השבת' : 'הפעל'}
                       </button>{' '}

@@ -475,6 +475,45 @@ async function isAccessoryReferenced(businessId: string, id: string): Promise<bo
   return openingTypes.some((t) => t.accessories.some((a) => a.accessory_id === id));
 }
 
+// Shared by every merged catalog kind (simple catalogs and opening-types alike): revert a fork
+// back to the global value if it exists there, else deactivate-if-referenced or hard-delete a
+// business-only item. Kept as one function so a fix to this logic (e.g. the getAllOpenings
+// scope) only has to be made once instead of drifting between per-kind copies.
+async function deleteMergedCatalogItem(
+  kind: SimpleCatalogKind | 'opening-types',
+  businessId: string,
+  id: string,
+  isReferenced: (businessId: string, id: string) => Promise<boolean>
+): Promise<{ deleted: true } | { deactivated: true }> {
+  const globalSnap = await getDoc(doc(globalCol(kind), id));
+  const overrideRef = doc(overridesCol(businessId, kind), id);
+  if (globalSnap.exists()) {
+    const overrideSnap = await getDoc(overrideRef);
+    // Nothing to revert if this business never forked the item — deleting a nonexistent
+    // override doc would silently no-op and misreport success.
+    if (!overrideSnap.exists()) throw new ApiError('not_found');
+    // Reverting a fork is always safe — historical quotes already snapshot the values
+    // they were priced with regardless of catalog source, so falling back to the current
+    // global value can never retroactively change an existing quote.
+    await deleteDoc(overrideRef);
+    return { deleted: true };
+  }
+  const existing = await getDoc(overrideRef);
+  if (!existing.exists()) throw new ApiError('not_found');
+  // Intentionally NOT a transaction, same reasoning as the customer DELETE route below:
+  // Firestore transactions can only tx.get() individual documents, never run the query
+  // `isReferenced` needs, so this check-then-act has a narrow race window (a concurrent
+  // opening add/edit could start referencing this item between the check and the delete)
+  // that would need a denormalized reference counter to close properly. Bypassing it can only
+  // ever corrupt this business's own data, never another business's.
+  if (await isReferenced(businessId, id)) {
+    await updateDoc(overrideRef, { is_active: 0, updated_at: nowIso() });
+    return { deactivated: true };
+  }
+  await deleteDoc(overrideRef);
+  return { deleted: true };
+}
+
 function registerBusinessSimpleCatalogRoutes(
   kind: SimpleCatalogKind,
   fields: string[],
@@ -503,25 +542,7 @@ function registerBusinessSimpleCatalogRoutes(
     return { id: p.id, ...patch };
   });
 
-  addRoute('DELETE', `${base}/:id`, async (p) => {
-    const globalSnap = await getDoc(doc(globalCol(kind), p.id));
-    if (globalSnap.exists()) {
-      // Reverting a fork is always safe — historical quotes already snapshot the values
-      // they were priced with regardless of catalog source, so falling back to the current
-      // global value can never retroactively change an existing quote.
-      await deleteDoc(doc(overridesCol(p.businessId, kind), p.id));
-      return { deleted: true };
-    }
-    const overrideRef = doc(overridesCol(p.businessId, kind), p.id);
-    const existing = await getDoc(overrideRef);
-    if (!existing.exists()) throw new ApiError('not_found');
-    if (await isReferenced(p.businessId, p.id)) {
-      await updateDoc(overrideRef, { is_active: 0, updated_at: nowIso() });
-      return { deactivated: true };
-    }
-    await deleteDoc(overrideRef);
-    return { deleted: true };
-  });
+  addRoute('DELETE', `${base}/:id`, async (p) => deleteMergedCatalogItem(kind, p.businessId, p.id, isReferenced));
 }
 
 const BUSINESS_SIMPLE_CATALOG_REFERENCED_CHECKS: Record<SimpleCatalogKind, (businessId: string, id: string) => Promise<boolean>> = {
@@ -696,23 +717,12 @@ addRoute('PUT', '/businesses/:businessId/opening-types/:id', async (p, _q, body:
   return { id: p.id, ...patch, accessories: await resolveKitByLookup(patch.accessories, (id) => resolveMergedItem<CatalogItemRow>(p.businessId, 'accessories', id)) };
 });
 
-addRoute('DELETE', '/businesses/:businessId/opening-types/:id', async (p) => {
-  const globalSnap = await getDoc(doc(globalCol('opening-types'), p.id));
-  if (globalSnap.exists()) {
-    await deleteDoc(doc(overridesCol(p.businessId, 'opening-types'), p.id));
-    return { deleted: true };
-  }
-  const overrideRef = doc(overridesCol(p.businessId, 'opening-types'), p.id);
-  const existing = await getDoc(overrideRef);
-  if (!existing.exists()) throw new ApiError('not_found');
-  const openings = await getAllOpenings(p.businessId);
-  if (openings.some((o) => o.opening_type_id === p.id)) {
-    await updateDoc(overrideRef, { is_active: 0, updated_at: nowIso() });
-    return { deactivated: true };
-  }
-  await deleteDoc(overrideRef);
-  return { deleted: true };
-});
+addRoute('DELETE', '/businesses/:businessId/opening-types/:id', async (p) =>
+  deleteMergedCatalogItem('opening-types', p.businessId, p.id, async (businessId, id) => {
+    const openings = await getAllOpenings(businessId);
+    return openings.some((o) => o.opening_type_id === id);
+  })
+);
 
 addRoute('PUT', '/businesses/:businessId/opening-types/:id/accessories', async (p, _q, body: any) => {
   const existing = await resolveMergedItem<OpeningTypeRow>(p.businessId, 'opening-types', p.id);
@@ -887,11 +897,11 @@ addRoute('GET', '/businesses/:businessId/projects', async (p, q) => {
   if (status) constraints.push(where('status', '==', status));
   const projectsQuery = query(projectsCol(p.businessId), ...constraints);
 
-  // The cleanup sweep, the projects read, and the customer-name lookup are all independent —
-  // running them in parallel instead of one after another shaves two round trips off the
-  // single most-visited page's load time.
-  const [, rows, customers] = await Promise.all([
-    deleteEmptyAbandonedDrafts(p.businessId),
+  // The sweep must finish before the projects read starts — running it concurrently (as before)
+  // let a draft that the sweep's batch.commit() hadn't landed yet still show up in this same
+  // response. The read and the customer-name lookup remain independent of each other.
+  await deleteEmptyAbandonedDrafts(p.businessId);
+  const [rows, customers] = await Promise.all([
     readCollection<ProjectRow>(projectsQuery),
     // One read of the whole (small, per-business) customer list beats one getDoc per distinct
     // customer_id on the projects list — a page every business owner hits constantly.
@@ -968,6 +978,7 @@ addRoute('PUT', '/businesses/:businessId/projects/:id', async (p, _q, body: any)
     let vatPct = existing.vat_pct_snapshot;
     if (status === 'draft') {
       const bizSnap = await tx.get(businessDoc(p.businessId));
+      if (!bizSnap.exists()) throw new ApiError('not_found');
       const biz = bizSnap.data() as BusinessRow;
       laborPct = biz.labor_pct;
       installationPct = biz.installation_pct;
@@ -1045,6 +1056,7 @@ addRoute('POST', '/businesses/:businessId/projects/:id/recalculate', async (p) =
     const repriced = await Promise.all((project.openings ?? []).map((o) => repriceOpening(p.businessId, o)));
 
     const bizSnap = await tx.get(businessDoc(p.businessId));
+    if (!bizSnap.exists()) throw new ApiError('not_found');
     const biz = bizSnap.data() as BusinessRow;
 
     tx.update(ref, {
@@ -1075,6 +1087,7 @@ addRoute('POST', '/businesses/:businessId/projects/:projectId/openings', async (
     const project = snap.data() as ProjectRow;
     if (project.status !== 'draft') throw new ApiError('project_not_draft');
     const bizSnap = await tx.get(businessDoc(p.businessId));
+    if (!bizSnap.exists()) throw new ApiError('not_found');
     const biz = bizSnap.data() as BusinessRow;
 
     const now = nowIso();
@@ -1139,6 +1152,7 @@ addRoute('PUT', '/businesses/:businessId/projects/:projectId/openings/:id', asyn
     const idx = (project.openings ?? []).findIndex((o) => o.id === openingId);
     if (idx === -1) throw new ApiError('not_found');
     const bizSnap = await tx.get(businessDoc(p.businessId));
+    if (!bizSnap.exists()) throw new ApiError('not_found');
     const biz = bizSnap.data() as BusinessRow;
 
     updatedOpening = buildOpeningEntry(openingId, merged, computed, refs, project.openings[idx].created_at);
@@ -1168,6 +1182,7 @@ addRoute('DELETE', '/businesses/:businessId/projects/:projectId/openings/:id', a
     const openings = originalOpenings.filter((o) => o.id !== openingId);
     if (openings.length === originalOpenings.length) throw new ApiError('not_found');
     const bizSnap = await tx.get(businessDoc(p.businessId));
+    if (!bizSnap.exists()) throw new ApiError('not_found');
     const biz = bizSnap.data() as BusinessRow;
 
     tx.update(ref, {

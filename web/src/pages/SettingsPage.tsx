@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Business } from '../api/types';
 import { resizeImageToDataUrl } from '../lib/imageResize';
-import { exportBackup } from '../lib/dataBackup';
+import { exportBackup, importBackup } from '../lib/dataBackup';
 import { exportCatalog } from '../lib/catalogExport';
 
 export default function SettingsPage() {
@@ -30,6 +30,9 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [restoreSuccess, setRestoreSuccess] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
 
   useEffect(() => {
     if (business) {
@@ -88,6 +91,32 @@ export default function SettingsPage() {
       await exportBackup(businessId!);
     } catch {
       setBackupError('ייצוא הגיבוי נכשל, נסו שוב');
+    }
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!confirm('שחזור מקובץ גיבוי יוסיף את הלקוחות וההצעות שבקובץ לעסק הנוכחי (הגדרות העסק יעודכנו לערכי הקובץ). להמשיך?')) {
+      return;
+    }
+    setRestoreError(null);
+    setRestoreSuccess(null);
+    setRestoring(true);
+    try {
+      const result = await importBackup(businessId!, file);
+      queryClient.invalidateQueries({ queryKey: ['business', businessId] });
+      queryClient.invalidateQueries({ queryKey: ['customers', businessId] });
+      queryClient.invalidateQueries({ queryKey: ['projects', businessId] });
+      setRestoreSuccess(
+        `שוחזרו ${result.customersRestored} לקוחות ו-${result.projectsRestored} הצעות` +
+          (result.openingsSkipped ? ` (${result.openingsSkipped} פתחים דולגו כי הפריט בקטלוג לא נמצא)` : '')
+      );
+    } catch {
+      setRestoreError('שחזור הגיבוי נכשל — ודאו שזהו קובץ גיבוי תקין ונסו שוב');
+    } finally {
+      setRestoring(false);
     }
   }
 
@@ -226,6 +255,15 @@ export default function SettingsPage() {
             ייצוא גיבוי
           </button>
           {backupError && <div className="error-text">{backupError}</div>}
+
+          <div style={{ marginTop: 16 }}>
+            <label className="btn" style={{ display: 'inline-block', cursor: restoring ? 'default' : 'pointer', opacity: restoring ? 0.6 : 1 }}>
+              {restoring ? 'משחזר...' : 'ייבוא מקובץ גיבוי'}
+              <input type="file" accept="application/json" onChange={handleImportFile} disabled={restoring} style={{ display: 'none' }} />
+            </label>
+            {restoreError && <div className="error-text">{restoreError}</div>}
+            {restoreSuccess && <div style={{ color: 'var(--color-success)', fontSize: 13, marginTop: 6 }}>{restoreSuccess}</div>}
+          </div>
         </div>
 
         <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>

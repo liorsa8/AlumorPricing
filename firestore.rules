@@ -42,6 +42,17 @@ service cloud.firestore {
       return isOwner(get(/databases/$(database)/documents/businesses/$(businessId)).data.owner_uid);
     }
 
+    // One list per catalog kind, driving a single generic rule below instead of a hand-copied
+    // block per collection — adding a 5th catalog kind (matching firestoreApi.ts's
+    // SIMPLE_CATALOG_CONFIGS / CATALOG_COLLECTION_NAME) means adding its name here, not
+    // hand-writing a new match block that's easy to get wrong or forget.
+    function isOverrideCollection(name) {
+      return name in ['profile_systems_overrides', 'glass_types_overrides', 'accessories_overrides', 'opening_types_overrides'];
+    }
+    function isGlobalCatalogCollection(name) {
+      return name in ['catalog_profile_systems', 'catalog_glass_types', 'catalog_accessories', 'catalog_opening_types'];
+    }
+
     match /users/{uid} {
       allow read, write: if isSignedIn() && request.auth.uid == uid;
     }
@@ -54,7 +65,13 @@ service cloud.firestore {
 
       match /customers/{customerId} {
         allow create: if isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
-        allow read, update, delete: if isOwner(resource.data.owner_uid);
+        // `resource == null` lets a get() on a not-yet-forked/overridden doc resolve as
+        // exists()==false instead of denying outright — Firestore evaluates rules even for
+        // reads of missing documents, and resource.data would throw on a null resource.
+        allow read: if resource == null || isOwner(resource.data.owner_uid);
+        allow update: if isOwner(resource.data.owner_uid)
+          && request.resource.data.owner_uid == resource.data.owner_uid;
+        allow delete: if isOwner(resource.data.owner_uid);
       }
 
       match /projects/{projectId} {
@@ -64,45 +81,28 @@ service cloud.firestore {
         // the project is still a draft — everything else (title, notes, customer_id,
         // discount_pct, status itself) can change at any status, matching today's behavior.
         allow update: if isOwner(resource.data.owner_uid)
+          && request.resource.data.owner_uid == resource.data.owner_uid
           && request.resource.data.quote_number == resource.data.quote_number
           && (resource.data.status == 'draft'
               || (request.resource.data.openings == resource.data.openings
                   && request.resource.data.next_opening_id == resource.data.next_opening_id));
       }
 
-      match /profile_systems_overrides/{id} {
-        allow create: if isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
-        allow read, update, delete: if isOwner(resource.data.owner_uid);
-      }
-      match /glass_types_overrides/{id} {
-        allow create: if isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
-        allow read, update, delete: if isOwner(resource.data.owner_uid);
-      }
-      match /accessories_overrides/{id} {
-        allow create: if isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
-        allow read, update, delete: if isOwner(resource.data.owner_uid);
-      }
-      match /opening_types_overrides/{id} {
-        allow create: if isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
-        allow read, update, delete: if isOwner(resource.data.owner_uid);
+      match /{overrideCollection}/{id} {
+        allow create: if isOverrideCollection(overrideCollection)
+          && isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
+        allow read: if isOverrideCollection(overrideCollection)
+          && (resource == null || isOwner(resource.data.owner_uid));
+        allow update: if isOverrideCollection(overrideCollection)
+          && isOwner(resource.data.owner_uid)
+          && request.resource.data.owner_uid == resource.data.owner_uid;
+        allow delete: if isOverrideCollection(overrideCollection) && isOwner(resource.data.owner_uid);
       }
     }
 
-    match /catalog_profile_systems/{id} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    match /catalog_glass_types/{id} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    match /catalog_accessories/{id} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    match /catalog_opening_types/{id} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+    match /{globalCatalogCollection}/{id} {
+      allow read: if isGlobalCatalogCollection(globalCatalogCollection) && isSignedIn();
+      allow write: if isGlobalCatalogCollection(globalCatalogCollection) && isAdmin();
     }
   }
 }
