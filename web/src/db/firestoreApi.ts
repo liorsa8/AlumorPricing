@@ -239,14 +239,26 @@ function ownScopedCol(col: CollectionReference<DocumentData>): Query<DocumentDat
   return query(col, where('owner_uid', '==', currentUid()));
 }
 
+// No ordering guarantee — callers that display this list sort it themselves (some need plain
+// name order, others like opening-types need sort_order first), so sorting here would either be
+// wasted work (immediately overwritten) or wrong for the caller that actually needs a different
+// order.
 async function readMergedCatalog<T extends CatalogItemRow>(businessId: string, kind: SimpleCatalogKind | 'opening-types'): Promise<T[]> {
   const [globalItems, overrides] = await Promise.all([
     readCollection<T>(globalCol(kind)),
     readCollection<T>(ownScopedCol(overridesCol(businessId, kind))),
   ]);
-  const merged = mergeCatalog(globalItems, overrides);
-  merged.sort((a, b) => a.name_he.localeCompare(b.name_he));
-  return merged;
+  return mergeCatalog(globalItems, overrides);
+}
+
+// The two orderings every catalog list route needs — shared so the comparator itself only
+// exists once, even though it's applied at 4 different call sites (global/business × simple
+// catalogs/opening-types).
+function sortByNameHe<T extends CatalogItemRow>(rows: T[]): T[] {
+  return rows.sort((a, b) => a.name_he.localeCompare(b.name_he));
+}
+function sortByOrderThenName<T extends OpeningTypeRow>(rows: T[]): T[] {
+  return rows.sort((a, b) => a.sort_order - b.sort_order || a.name_he.localeCompare(b.name_he));
 }
 
 // Point lookup for a single merged catalog item (override first, else global) — used wherever
@@ -400,11 +412,7 @@ const SIMPLE_CATALOG_CONFIGS: { kind: SimpleCatalogKind; fields: string[] }[] = 
 function registerGlobalSimpleCatalogRoutes(kind: SimpleCatalogKind, fields: string[]) {
   const base = `/catalog/${kind}`;
 
-  addRoute('GET', base, async () => {
-    const rows = await readCollection<CatalogItemRow>(globalCol(kind));
-    rows.sort((a, b) => a.name_he.localeCompare(b.name_he));
-    return rows;
-  });
+  addRoute('GET', base, async () => sortByNameHe(await readCollection<CatalogItemRow>(globalCol(kind))));
 
   addRoute('POST', base, async (_p, _q, body: any) => {
     const now = nowIso();
@@ -489,9 +497,15 @@ async function deleteMergedCatalogItem(
   const overrideRef = doc(overridesCol(businessId, kind), id);
   if (globalSnap.exists()) {
     const overrideSnap = await getDoc(overrideRef);
-    // Nothing to revert if this business never forked the item — deleting a nonexistent
-    // override doc would silently no-op and misreport success.
-    if (!overrideSnap.exists()) throw new ApiError('not_found');
+    if (!overrideSnap.exists()) {
+      // Never forked — the UI can't tell a plain global item apart from a business-only one
+      // (both show forked_from_global: false), so it offers the same "מחיקה" button on both.
+      // There's nothing of this business's own to revert here, and a global item can't be
+      // deleted outright (it's shared by every business) — fork it into an inactive override
+      // instead, the same end state the "השבת" toggle already produces for a forked item.
+      await setDoc(overrideRef, { ...globalSnap.data(), owner_uid: currentUid(), is_active: 0, updated_at: nowIso() });
+      return { deactivated: true };
+    }
     // Reverting a fork is always safe — historical quotes already snapshot the values
     // they were priced with regardless of catalog source, so falling back to the current
     // global value can never retroactively change an existing quote.
@@ -521,7 +535,7 @@ function registerBusinessSimpleCatalogRoutes(
 ) {
   const base = `/businesses/:businessId/${kind}`;
 
-  addRoute('GET', base, async (p) => readMergedCatalog<CatalogItemRow>(p.businessId, kind));
+  addRoute('GET', base, async (p) => sortByNameHe(await readMergedCatalog<CatalogItemRow>(p.businessId, kind)));
 
   addRoute('POST', base, async (p, _q, body: any) => {
     const now = nowIso();
@@ -591,7 +605,7 @@ addRoute('GET', '/catalog/opening-types', async () => {
     readCollection<OpeningTypeRow>(globalCol('opening-types')),
     readCollection<CatalogItemRow>(globalCol('accessories')),
   ]);
-  rows.sort((a, b) => a.sort_order - b.sort_order || a.name_he.localeCompare(b.name_he));
+  sortByOrderThenName(rows);
   const byId = new Map(accessories.map((a) => [a.id, a]));
   return rows.map((r) => ({ ...r, accessories: resolveKit(r.accessories, byId) }));
 });
@@ -674,7 +688,7 @@ addRoute('GET', '/businesses/:businessId/opening-types', async (p) => {
     readMergedCatalog<OpeningTypeRow>(p.businessId, 'opening-types'),
     readMergedCatalog<CatalogItemRow>(p.businessId, 'accessories'),
   ]);
-  rows.sort((a, b) => a.sort_order - b.sort_order || a.name_he.localeCompare(b.name_he));
+  sortByOrderThenName(rows);
   const byId = new Map(accessories.map((a) => [a.id, a]));
   return rows.map((r) => ({ ...r, accessories: resolveKit(r.accessories, byId) }));
 });
@@ -899,8 +913,14 @@ addRoute('GET', '/businesses/:businessId/projects', async (p, q) => {
 
   // The sweep must finish before the projects read starts — running it concurrently (as before)
   // let a draft that the sweep's batch.commit() hadn't landed yet still show up in this same
-  // response. The read and the customer-name lookup remain independent of each other.
-  await deleteEmptyAbandonedDrafts(p.businessId);
+  // response. It's background maintenance, though, so a failure here (e.g. a composite index
+  // still building on a freshly-provisioned project) must not take down the primary read below —
+  // the user just keeps seeing whatever stale empty drafts didn't get swept this time.
+  try {
+    await deleteEmptyAbandonedDrafts(p.businessId);
+  } catch {
+    // Best-effort cleanup only — see above.
+  }
   const [rows, customers] = await Promise.all([
     readCollection<ProjectRow>(projectsQuery),
     // One read of the whole (small, per-business) customer list beats one getDoc per distinct
@@ -1116,34 +1136,22 @@ addRoute('PUT', '/businesses/:businessId/projects/:projectId/openings/:id', asyn
   const openingId = Number(p.id);
   const ref = projectDoc(p.businessId, p.projectId);
 
-  const outerSnap = await getDoc(ref);
-  if (!outerSnap.exists()) throw new ApiError('not_found');
-  const outerProject = outerSnap.data() as ProjectRow;
-  const existingOpening = (outerProject.openings ?? []).find((o) => o.id === openingId);
-  if (!existingOpening) throw new ApiError('not_found');
-
-  const merged: OpeningOwnColumns = {
-    opening_type_id: body.opening_type_id ?? existingOpening.opening_type_id,
-    profile_system_id: body.profile_system_id ?? existingOpening.profile_system_id,
-    glass_type_id: body.glass_type_id ?? existingOpening.glass_type_id,
-    label: body.label ?? existingOpening.label,
-    width_mm: body.width_mm ?? existingOpening.width_mm,
-    height_mm: body.height_mm ?? existingOpening.height_mm,
-    quantity: body.quantity && body.quantity > 0 ? body.quantity : existingOpening.quantity,
-  };
-  // Same guard the create route applies — without it, editing width_mm/height_mm to 0 (falsy,
-  // so it survives the ?? above) would silently zero out this opening's line_subtotal and drag
-  // down the whole project's total with no error shown.
-  if (!merged.width_mm || !merged.height_mm || merged.width_mm <= 0 || merged.height_mm <= 0) {
-    throw new ApiError('invalid_dimensions');
-  }
-
-  const refs = await resolveOpeningRefs(p.businessId, merged.opening_type_id, merged.profile_system_id, merged.glass_type_id);
-  if (!refs) throw new ApiError('invalid_reference');
-  const computed = priceOpening(refs, merged.width_mm, merged.height_mm, merged.quantity);
-
   let updatedOpening: OpeningEntry | undefined;
+  // Resolved catalog refs, memoized across transaction retries by the exact (type, profile,
+  // glass) triple they were resolved for. A retry is forced by contention on the project doc,
+  // typically from a concurrent edit to an unrelated field (label, width_mm, ...) — the triple
+  // is almost always unchanged, so this avoids re-issuing the same handful of Firestore
+  // point-lookups (resolveOpeningRefs) on every retry.
+  let cachedRefsKey: string | undefined;
+  let cachedRefs: ResolvedOpeningRefs | null | undefined;
 
+  // Everything below — reading the existing opening, merging the body over it, resolving
+  // catalog refs, and pricing — happens INSIDE the transaction and is re-derived from scratch
+  // on every retry. Merging against a snapshot read before the transaction started (as this
+  // route used to) meant any field the body didn't touch fell back to a stale value: a
+  // concurrent edit to a different field of this same opening (a realistic multi-tab/device
+  // scenario now that Firestore replaced the old single-tab Dexie backend) would be silently
+  // overwritten once this transaction's write landed.
   await runTransaction(firestore, async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists()) throw new ApiError('not_found');
@@ -1151,11 +1159,41 @@ addRoute('PUT', '/businesses/:businessId/projects/:projectId/openings/:id', asyn
     if (project.status !== 'draft') throw new ApiError('project_not_draft');
     const idx = (project.openings ?? []).findIndex((o) => o.id === openingId);
     if (idx === -1) throw new ApiError('not_found');
+    const existingOpening = project.openings[idx];
+
+    const merged: OpeningOwnColumns = {
+      opening_type_id: body.opening_type_id ?? existingOpening.opening_type_id,
+      profile_system_id: body.profile_system_id ?? existingOpening.profile_system_id,
+      glass_type_id: body.glass_type_id ?? existingOpening.glass_type_id,
+      label: body.label ?? existingOpening.label,
+      width_mm: body.width_mm ?? existingOpening.width_mm,
+      height_mm: body.height_mm ?? existingOpening.height_mm,
+      quantity: body.quantity && body.quantity > 0 ? body.quantity : existingOpening.quantity,
+    };
+    // Same guard the create route applies — without it, editing width_mm/height_mm to 0 (falsy,
+    // so it survives the ?? above) would silently zero out this opening's line_subtotal and drag
+    // down the whole project's total with no error shown.
+    if (!merged.width_mm || !merged.height_mm || merged.width_mm <= 0 || merged.height_mm <= 0) {
+      throw new ApiError('invalid_dimensions');
+    }
+
+    // Catalog lookups aren't part of what the transaction needs to stay consistent (same
+    // reasoning as resolveOpeningRefs' other callers) — a plain read, not tx.get(), is fine
+    // here even mid-transaction.
+    const refsKey = `${merged.opening_type_id}|${merged.profile_system_id}|${merged.glass_type_id}`;
+    if (refsKey !== cachedRefsKey) {
+      cachedRefs = await resolveOpeningRefs(p.businessId, merged.opening_type_id, merged.profile_system_id, merged.glass_type_id);
+      cachedRefsKey = refsKey;
+    }
+    const refs = cachedRefs;
+    if (!refs) throw new ApiError('invalid_reference');
+    const computed = priceOpening(refs, merged.width_mm, merged.height_mm, merged.quantity);
+
     const bizSnap = await tx.get(businessDoc(p.businessId));
     if (!bizSnap.exists()) throw new ApiError('not_found');
     const biz = bizSnap.data() as BusinessRow;
 
-    updatedOpening = buildOpeningEntry(openingId, merged, computed, refs, project.openings[idx].created_at);
+    updatedOpening = buildOpeningEntry(openingId, merged, computed, refs, existingOpening.created_at);
     const openings = [...project.openings];
     openings[idx] = updatedOpening;
 

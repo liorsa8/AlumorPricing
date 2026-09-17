@@ -4,7 +4,14 @@ const admin = require('firebase-admin');
 
 // Shared bootstrap for both scripts. Two modes:
 //   --emulator            talk to the local Firestore/Auth emulators (see ../../firebase.json)
-//                         — no credentials needed, matches .firebaserc's "demo-alumor-pricing".
+//                         — no credentials needed. `.firebaserc`'s default project
+//                         ("alumor-pricing") is the REAL project, used for actual `firebase
+//                         deploy`/`firebase deploy --only firestore:rules` — it is NOT what
+//                         `firebase emulators:start` binds to here. Start the emulators with
+//                         `npm run emulators` (root package.json), which passes
+//                         `--project demo-alumor-pricing` explicitly so it matches this script.
+//                         Running a bare `firebase emulators:start` instead would bind to
+//                         "alumor-pricing" and this script's writes wouldn't show up there.
 //   (default)             talk to a real Firebase project using a downloaded service-account
 //                         key — never commit that file (see ../../.gitignore).
 function initAdmin() {

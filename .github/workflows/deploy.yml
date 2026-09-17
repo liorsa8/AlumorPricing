@@ -25,6 +25,18 @@ jobs:
           node-version: 20
       - run: npm ci
       - run: npm run build
+        env:
+          # Vite inlines these into the built bundle at build time (see web/.env.example) — with
+          # no env here, firebaseConfig.ts's initializeApp() gets all-undefined values and every
+          # sign-in / Firestore call in the deployed app fails outright. These aren't secret
+          # (they end up in the public bundle regardless — real protection is firestore.rules),
+          # but they still have to come from somewhere since no .env file is committed.
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
