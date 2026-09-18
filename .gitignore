@@ -6,6 +6,7 @@ web/dist/
 *.timestamp-*.mjs
 .env
 scripts/firebase-admin/service-account*.json
+scripts/firebase-admin/*firebase-adminsdk*.json
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
