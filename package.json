@@ -11,6 +11,8 @@
     "preview": "npm run preview -w web",
     "test": "npm run test -w web",
     "emulators": "firebase emulators:start --project demo-alumor-pricing",
+    "firebase:login": "firebase login",
+    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes --project alumor-pricing",
     "deploy:hosting": "npm run build:firebase -w web && firebase deploy --only hosting"
   }
 }

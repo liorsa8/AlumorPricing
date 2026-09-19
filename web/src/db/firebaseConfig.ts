@@ -33,7 +33,9 @@ export const db = initializeFirestore(app, {
 // the local Firestore/Auth emulator (see firebase.json), never real data. `npm run dev` talks
 // to the real project by default — set VITE_USE_FIREBASE_EMULATOR=true in web/.env.local if you
 // want to point local dev at the emulator too (once it's actually running).
-if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
+// Never in a production build (`vite build`), even if the flag is left on in .env — otherwise
+// the deployed site would try to reach the visitor's own localhost.
+if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' && !import.meta.env.PROD) {
   connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
   connectFirestoreEmulator(db, 'localhost', 8080);
 }
