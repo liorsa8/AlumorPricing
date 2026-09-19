@@ -1,0 +1,108 @@
+rules_version = '2';
+
+// Security model, in one paragraph: every business-scoped document (customers, projects,
+// catalog overrides) carries its own owner_uid, denormalized at write time, so read/update/
+// delete below is a flat equality check — no get() back to a parent business doc, which would
+// cost an extra read per row on every list query. `create`, however, DOES call get() on the
+// parent business doc (isBusinessOwner) — the one-time cost of that extra read on create is
+// worth it, because without it a signed-in user could setDoc a customer/project/override under
+// ANY business's id just by stamping their own uid as owner_uid, since nothing else in this
+// file ties a child document's path to who actually owns that business. The matching Firestore
+// queries in firestoreApi.ts filter on owner_uid too — a list query is only allowed to run at
+// all if it's provably restricted to documents the caller could read, so every list read under
+// businesses/{id}/... must carry a matching where('owner_uid', '==', uid) clause. The global
+// catalog (catalog_*) is writable only by the app's single admin, via a custom auth claim that
+// nothing client-side can ever set.
+//
+// Draft-lock (businesses/{id}/projects/{id}, below) is the one place this matters beyond
+// convenience: with no server left, a bypassed UI — or literally the browser devtools console
+// talking to the Firestore SDK directly — is the only thing standing between a finalized
+// quote and someone mutating its line items. This rule is the actual enforcement; the
+// matching client-side check in firestoreApi.ts exists only to produce a friendlier error.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    function isOwner(ownerUid) {
+      return isSignedIn() && request.auth.uid == ownerUid;
+    }
+
+    // Only used on create: confirms businessId's OWN owner_uid (the parent doc, fetched once)
+    // matches the caller — the thing a flat isOwner(request.resource.data.owner_uid) check can
+    // never verify on its own, since that only checks the value the caller chose to write.
+    function isBusinessOwner(businessId) {
+      return isOwner(get(/databases/$(database)/documents/businesses/$(businessId)).data.owner_uid);
+    }
+
+    // One list per catalog kind, driving a single generic rule below instead of a hand-copied
+    // block per collection — adding a 5th catalog kind (matching firestoreApi.ts's
+    // SIMPLE_CATALOG_CONFIGS / CATALOG_COLLECTION_NAME) means adding its name here, not
+    // hand-writing a new match block that's easy to get wrong or forget.
+    function isOverrideCollection(name) {
+      return name in ['profile_systems_overrides', 'glass_types_overrides', 'accessories_overrides', 'opening_types_overrides'];
+    }
+    function isGlobalCatalogCollection(name) {
+      return name in ['catalog_profile_systems', 'catalog_glass_types', 'catalog_accessories', 'catalog_opening_types'];
+    }
+
+    match /users/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    match /businesses/{businessId} {
+      allow create: if isOwner(request.resource.data.owner_uid);
+      allow read, delete: if isOwner(resource.data.owner_uid);
+      allow update: if isOwner(resource.data.owner_uid)
+        && request.resource.data.owner_uid == resource.data.owner_uid;
+
+      match /customers/{customerId} {
+        allow create: if isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
+        // `resource == null` lets a get() on a not-yet-forked/overridden doc resolve as
+        // exists()==false instead of denying outright — Firestore evaluates rules even for
+        // reads of missing documents, and resource.data would throw on a null resource.
+        allow read: if resource == null || isOwner(resource.data.owner_uid);
+        allow update: if isOwner(resource.data.owner_uid)
+          && request.resource.data.owner_uid == resource.data.owner_uid;
+        allow delete: if isOwner(resource.data.owner_uid);
+      }
+
+      match /projects/{projectId} {
+        allow create: if isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
+        allow read, delete: if isOwner(resource.data.owner_uid);
+        // quote_number is immutable forever; openings/next_opening_id may only change while
+        // the project is still a draft — everything else (title, notes, customer_id,
+        // discount_pct, status itself) can change at any status, matching today's behavior.
+        allow update: if isOwner(resource.data.owner_uid)
+          && request.resource.data.owner_uid == resource.data.owner_uid
+          && request.resource.data.quote_number == resource.data.quote_number
+          && (resource.data.status == 'draft'
+              || (request.resource.data.openings == resource.data.openings
+                  && request.resource.data.next_opening_id == resource.data.next_opening_id));
+      }
+
+      match /{overrideCollection}/{id} {
+        allow create: if isOverrideCollection(overrideCollection)
+          && isBusinessOwner(businessId) && isOwner(request.resource.data.owner_uid);
+        allow read: if isOverrideCollection(overrideCollection)
+          && (resource == null || isOwner(resource.data.owner_uid));
+        allow update: if isOverrideCollection(overrideCollection)
+          && isOwner(resource.data.owner_uid)
+          && request.resource.data.owner_uid == resource.data.owner_uid;
+        allow delete: if isOverrideCollection(overrideCollection) && isOwner(resource.data.owner_uid);
+      }
+    }
+
+    match /{globalCatalogCollection}/{id} {
+      allow read: if isGlobalCatalogCollection(globalCatalogCollection) && isSignedIn();
+      allow write: if isGlobalCatalogCollection(globalCatalogCollection) && isAdmin();
+    }
+  }
+}

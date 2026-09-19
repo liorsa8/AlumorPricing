@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { useCatalogAdminMode } from '../lib/useCatalogAdminMode';
 import { formatCurrency } from '../lib/format';
 
 export interface CatalogField {
@@ -12,14 +13,16 @@ export interface CatalogField {
 }
 
 interface CatalogItem {
-  id: number;
+  id: string;
   is_active: number;
+  forked_from_global?: boolean;
   [key: string]: unknown;
 }
 
 interface CatalogCrudPageProps {
   title: string;
-  endpoint: string;
+  kind: string;
+  businessId: string;
   queryKey: string;
   fields: CatalogField[];
   addButtonLabel: string;
@@ -27,24 +30,32 @@ interface CatalogCrudPageProps {
   deleteConfirmText: string;
 }
 
+// Two namespaces behind one page: /catalog/:kind (the true global catalog, admin-write-only —
+// enforced by firestore.rules, not just this toggle) and /businesses/:businessId/:kind (the
+// merged, per-business view). Editing a merged row that originated in the global catalog forks
+// it into a private override for this business only; "deleting" such a fork just reverts to
+// the current global value (see firestoreApi's DELETE handler) — never touches other businesses.
 export default function CatalogCrudPage({
   title,
-  endpoint,
+  kind,
+  businessId,
   queryKey,
   fields,
   addButtonLabel,
   emptyStateLabel,
   deleteConfirmText,
 }: CatalogCrudPageProps) {
+  const { isAdmin, adminMode, setAdminMode, editingGlobal, endpoint } = useCatalogAdminMode(kind, businessId);
+
   const emptyForm = Object.fromEntries(fields.map((f) => [f.key, f.defaultValue ?? '']));
   const queryClient = useQueryClient();
   const { data: items = [] } = useQuery({
-    queryKey: [queryKey],
+    queryKey: [queryKey, businessId, editingGlobal],
     queryFn: () => api.get<CatalogItem[]>(endpoint),
   });
 
   const [form, setForm] = useState<Record<string, string>>(emptyForm);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: [queryKey] });
@@ -68,7 +79,7 @@ export default function CatalogCrudPage({
   });
 
   const updateMutation = useMutation({
-    mutationFn: (id: number) => api.put(`${endpoint}/${id}`, buildPayload()),
+    mutationFn: (id: string) => api.put(`${endpoint}/${id}`, buildPayload()),
     onSuccess: () => {
       setForm(emptyForm);
       setEditingId(null);
@@ -78,13 +89,15 @@ export default function CatalogCrudPage({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`${endpoint}/${id}`),
+    mutationFn: (id: string) => api.delete(`${endpoint}/${id}`),
     onSuccess: invalidate,
+    onError: (e: Error) => setError(e.message),
   });
 
   const toggleActiveMutation = useMutation({
-    mutationFn: ({ id, is_active }: { id: number; is_active: boolean }) => api.put(`${endpoint}/${id}`, { is_active }),
+    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) => api.put(`${endpoint}/${id}`, { is_active }),
     onSuccess: invalidate,
+    onError: (e: Error) => setError(e.message),
   });
 
   function startEdit(item: CatalogItem) {
@@ -112,7 +125,27 @@ export default function CatalogCrudPage({
     <div>
       <div className="page-header">
         <h2>{title}</h2>
+        {isAdmin && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+            <input
+              type="checkbox"
+              checked={adminMode}
+              onChange={(e) => {
+                setAdminMode(e.target.checked);
+                setEditingId(null);
+                setForm(emptyForm);
+              }}
+            />
+            עריכת הקטלוג הגלובלי (משפיע על כל העסקים)
+          </label>
+        )}
       </div>
+
+      {!editingGlobal && (
+        <p className="text-muted" style={{ fontSize: 13 }}>
+          עריכת פריט מהקטלוג הגלובלי יוצרת עותק פרטי לעסק שלכם בלבד; "איפוס לברירת מחדל" מוחק את העותק ומחזיר אתכם לערך הגלובלי הנוכחי.
+        </p>
+      )}
 
       <div className="card">
         <form onSubmit={submit}>
@@ -164,42 +197,58 @@ export default function CatalogCrudPage({
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
-                <tr key={item.id} style={{ opacity: item.is_active ? 1 : 0.5 }}>
-                  {fields.map((f) => {
-                    const value = item[f.key];
-                    return (
-                      <td key={f.key} className={f.type === 'number' ? 'numeric' : undefined}>
-                        {f.type === 'number'
-                          ? formatCurrency(Number(value) || 0)
-                          : value !== null && value !== undefined && value !== ''
-                            ? String(value)
-                            : '—'}
-                      </td>
-                    );
-                  })}
-                  <td>{item.is_active ? 'פעיל' : 'לא פעיל'}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    <button className="btn btn-sm" onClick={() => startEdit(item)}>
-                      עריכה
-                    </button>{' '}
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => toggleActiveMutation.mutate({ id: item.id, is_active: !item.is_active })}
-                    >
-                      {item.is_active ? 'השבת' : 'הפעל'}
-                    </button>{' '}
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => {
-                        if (confirm(deleteConfirmText)) deleteMutation.mutate(item.id);
-                      }}
-                    >
-                      מחיקה
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {items.map((item) => {
+                const isFork = !editingGlobal && Boolean(item.forked_from_global);
+                return (
+                  <tr key={item.id} style={{ opacity: item.is_active ? 1 : 0.5 }}>
+                    {fields.map((f) => {
+                      const value = item[f.key];
+                      return (
+                        <td key={f.key} className={f.type === 'number' ? 'numeric' : undefined}>
+                          {f.type === 'number'
+                            ? formatCurrency(Number(value) || 0)
+                            : value !== null && value !== undefined && value !== ''
+                              ? String(value)
+                              : '—'}
+                        </td>
+                      );
+                    })}
+                    <td>{item.is_active ? 'פעיל' : 'לא פעיל'}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <button className="btn btn-sm" onClick={() => startEdit(item)}>
+                        עריכה
+                      </button>{' '}
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => {
+                          // Toggling an item that's still merged straight from the global catalog
+                          // forks it into a private, business-scoped copy (see the PUT handler in
+                          // firestoreApi.ts) — warn before silently detaching it from future
+                          // global catalog updates.
+                          if (
+                            !editingGlobal &&
+                            !isFork &&
+                            !confirm('שינוי הסטטוס ייצור עותק פרטי לעסק שלכם, שלא יתעדכן יותר אוטומטית מהקטלוג הגלובלי. להמשיך?')
+                          ) {
+                            return;
+                          }
+                          toggleActiveMutation.mutate({ id: item.id, is_active: !item.is_active });
+                        }}
+                      >
+                        {item.is_active ? 'השבת' : 'הפעל'}
+                      </button>{' '}
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => {
+                          if (confirm(isFork ? 'לאפס את הפריט לערך הגלובלי המקורי?' : deleteConfirmText)) deleteMutation.mutate(item.id);
+                        }}
+                      >
+                        {isFork ? 'איפוס לברירת מחדל' : 'מחיקה'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

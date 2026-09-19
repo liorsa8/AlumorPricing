@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Settings } from '../api/types';
+import { Business } from '../api/types';
 import { resizeImageToDataUrl } from '../lib/imageResize';
 import { exportBackup, importBackup } from '../lib/dataBackup';
 import { exportCatalog } from '../lib/catalogExport';
 
 export default function SettingsPage() {
+  const { businessId } = useParams<{ businessId: string }>();
   const queryClient = useQueryClient();
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.get<Settings>('/api/settings'),
+  const { data: business } = useQuery({
+    queryKey: ['business', businessId],
+    queryFn: () => api.get<Business>(`/businesses/${businessId}`),
   });
 
   const [form, setForm] = useState({
@@ -28,28 +30,30 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
-  const [imported, setImported] = useState(false);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [restoreSuccess, setRestoreSuccess] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
 
   useEffect(() => {
-    if (settings) {
+    if (business) {
       setForm({
-        labor_pct: String(settings.labor_pct),
-        installation_pct: String(settings.installation_pct),
-        vat_pct: String(settings.vat_pct),
-        company_name: settings.company_name,
-        company_phone: settings.company_phone,
-        company_address: settings.company_address,
-        company_email: settings.company_email,
-        company_tax_id: settings.company_tax_id,
-        company_logo: settings.company_logo,
-        standard_terms: settings.standard_terms,
+        labor_pct: String(business.labor_pct),
+        installation_pct: String(business.installation_pct),
+        vat_pct: String(business.vat_pct),
+        company_name: business.company_name,
+        company_phone: business.company_phone,
+        company_address: business.company_address,
+        company_email: business.company_email,
+        company_tax_id: business.company_tax_id,
+        company_logo: business.company_logo,
+        standard_terms: business.standard_terms,
       });
     }
-  }, [settings]);
+  }, [business]);
 
   const saveMutation = useMutation({
     mutationFn: () =>
-      api.put('/api/settings', {
+      api.put(`/businesses/${businessId}`, {
         labor_pct: Number(form.labor_pct) || 0,
         installation_pct: Number(form.installation_pct) || 0,
         vat_pct: Number(form.vat_pct) || 0,
@@ -62,7 +66,7 @@ export default function SettingsPage() {
         standard_terms: form.standard_terms,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      queryClient.invalidateQueries({ queryKey: ['business', businessId] });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     },
@@ -81,21 +85,38 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleExportBackup() {
+    setBackupError(null);
+    try {
+      await exportBackup(businessId!);
+    } catch {
+      setBackupError('ייצוא הגיבוי נכשל, נסו שוב');
+    }
+  }
+
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (!confirm('ייבוא יחליף את כל הנתונים הקיימים באפליקציה (לקוחות, הצעות, קטלוג, הגדרות) בתוכן הקובץ. להמשיך?')) {
+    if (!confirm('שחזור מקובץ גיבוי יוסיף את הלקוחות וההצעות שבקובץ לעסק הנוכחי (הגדרות העסק יעודכנו לערכי הקובץ). להמשיך?')) {
       return;
     }
-    setBackupError(null);
+    setRestoreError(null);
+    setRestoreSuccess(null);
+    setRestoring(true);
     try {
-      await importBackup(file);
-      setImported(true);
-      queryClient.invalidateQueries();
-      setTimeout(() => setImported(false), 3000);
+      const result = await importBackup(businessId!, file);
+      queryClient.invalidateQueries({ queryKey: ['business', businessId] });
+      queryClient.invalidateQueries({ queryKey: ['customers', businessId] });
+      queryClient.invalidateQueries({ queryKey: ['projects', businessId] });
+      setRestoreSuccess(
+        `שוחזרו ${result.customersRestored} לקוחות ו-${result.projectsRestored} הצעות` +
+          (result.openingsSkipped ? ` (${result.openingsSkipped} פתחים דולגו כי הפריט בקטלוג לא נמצא)` : '')
+      );
     } catch {
-      setBackupError('קובץ הגיבוי לא תקין או פגום');
+      setRestoreError('שחזור הגיבוי נכשל — ודאו שזהו קובץ גיבוי תקין ונסו שוב');
+    } finally {
+      setRestoring(false);
     }
   }
 
@@ -226,19 +247,23 @@ export default function SettingsPage() {
         {saved && <span style={{ marginInlineStart: 10, color: 'var(--color-success)' }}>נשמר ✓</span>}
 
         <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
-          <h3 style={{ marginTop: 0 }}>גיבוי ושחזור נתונים</h3>
+          <h3 style={{ marginTop: 0 }}>גיבוי נתונים</h3>
           <p className="text-muted" style={{ fontSize: 13, marginTop: 0 }}>
-            כל הנתונים נשמרים במכשיר הזה בלבד. מומלץ לייצא גיבוי מדי פעם, ולפני מעבר למכשיר אחר.
+            כל הנתונים נשמרים בענן (Firebase). מומלץ לייצא גיבוי מדי פעם כעותק בטיחות נוסף.
           </p>
-          <button type="button" className="btn" onClick={() => exportBackup()}>
+          <button type="button" className="btn" onClick={handleExportBackup}>
             ייצוא גיבוי
-          </button>{' '}
-          <label className="btn" style={{ display: 'inline-flex', cursor: 'pointer' }}>
-            ייבוא מקובץ גיבוי
-            <input type="file" accept="application/json" onChange={handleImportFile} style={{ display: 'none' }} />
-          </label>
-          {imported && <span style={{ marginInlineStart: 10, color: 'var(--color-success)' }}>יובא בהצלחה ✓</span>}
+          </button>
           {backupError && <div className="error-text">{backupError}</div>}
+
+          <div style={{ marginTop: 16 }}>
+            <label className="btn" style={{ display: 'inline-block', cursor: restoring ? 'default' : 'pointer', opacity: restoring ? 0.6 : 1 }}>
+              {restoring ? 'משחזר...' : 'ייבוא מקובץ גיבוי'}
+              <input type="file" accept="application/json" onChange={handleImportFile} disabled={restoring} style={{ display: 'none' }} />
+            </label>
+            {restoreError && <div className="error-text">{restoreError}</div>}
+            {restoreSuccess && <div style={{ color: 'var(--color-success)', fontSize: 13, marginTop: 6 }}>{restoreSuccess}</div>}
+          </div>
         </div>
 
         <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
@@ -246,7 +271,7 @@ export default function SettingsPage() {
           <p className="text-muted" style={{ fontSize: 13, marginTop: 0 }}>
             קובץ נפרד עם הקטלוג בלבד (מערכות פרופיל, סוגי זכוכית, אביזרים, סוגי פתחים) — בלי לקוחות והצעות. שימושי להעברת קטלוג למכשיר אחר, או לשמירת עותק לפני עדכון מחירים.
           </p>
-          <button type="button" className="btn" onClick={() => exportCatalog()}>
+          <button type="button" className="btn" onClick={() => exportCatalog(businessId!)}>
             ייצוא קטלוג
           </button>
         </div>

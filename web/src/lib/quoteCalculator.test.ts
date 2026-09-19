@@ -12,10 +12,10 @@ describe('computeOpeningLine', () => {
       { profile_factor: 3.0, glass_area_ratio: 0.82 },
       { profile_price_per_meter: 48, glass_price_per_sqm: 220 },
       [
-        { accessory_id: 1, name_he: 'גלגלת הזזה', quantity: 2, price_per_unit: 18 },
-        { accessory_id: 2, name_he: 'מנעול הזזה', quantity: 1, price_per_unit: 40 },
-        { accessory_id: 3, name_he: 'אטם גומי (EPDM)', quantity: 1, price_per_unit: 8 },
-        { accessory_id: 4, name_he: 'מברשת איטום', quantity: 1, price_per_unit: 6 },
+        { accessory_id: '1', name_he: 'גלגלת הזזה', quantity: 2, price_per_unit: 18 },
+        { accessory_id: '2', name_he: 'מנעול הזזה', quantity: 1, price_per_unit: 40 },
+        { accessory_id: '3', name_he: 'אטם גומי (EPDM)', quantity: 1, price_per_unit: 8 },
+        { accessory_id: '4', name_he: 'מברשת איטום', quantity: 1, price_per_unit: 6 },
       ]
     );
 

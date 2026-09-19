@@ -1,10 +1,13 @@
+import { useParams } from 'react-router-dom';
 import CatalogCrudPage from '../../components/CatalogCrudPage';
 
 export default function AccessoriesPage() {
+  const { businessId } = useParams<{ businessId: string }>();
   return (
     <CatalogCrudPage
       title="אביזרים"
-      endpoint="/api/accessories"
+      kind="accessories"
+      businessId={businessId!}
       queryKey="accessories"
       addButtonLabel="הוסף אביזר"
       emptyStateLabel="אין עדיין אביזרים בקטלוג"

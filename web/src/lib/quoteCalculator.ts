@@ -9,7 +9,7 @@ export interface OpeningPrices {
 }
 
 export interface AccessoryInput {
-  accessory_id: number;
+  accessory_id: string;
   name_he: string;
   quantity: number;
   price_per_unit: number;
