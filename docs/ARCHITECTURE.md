@@ -169,19 +169,26 @@ npm run emulators  # local Firestore/Auth emulator, for dev/testing without touc
 
 `web/.env` (copy from `web/.env.example`) needs a real Firebase project's web config to run against real data; see `firebaseConfig.ts`.
 
-## Hosting (GitHub Pages)
+## Hosting (Firebase Hosting)
 
-`.github/workflows/deploy.yml` builds and publishes `web/dist` to GitHub Pages whenever a `v*` tag is pushed (or via manual dispatch) — one-time setup: repo Settings → Pages → Source = "GitHub Actions", plus the six `VITE_FIREBASE_*` values (see `web/.env.example`) added as repository secrets of the same names, since the build step needs them to bake into the bundle (Vite inlines `import.meta.env.VITE_*` at build time — there's no server-side env at runtime to fall back on). The deployed URL is `https://liorsa8.github.io/AlumorPricing/` — a real HTTPS domain, for free, with no server to run or maintain beyond Firebase itself.
+The app is deployed to Firebase Hosting, in the same project as Auth and Firestore (`.firebaserc` default: `alumor-pricing`; the `hosting` block in `firebase.json` serves `web/dist`). The URL is `https://alumor-pricing.web.app`. Firebase's own domains are pre-authorized for Google sign-in; a custom domain must be added under Authentication → Settings → Authorized domains.
 
-This subpath (not the domain root) drives two deliberate choices elsewhere in the code:
-- **`web/vite.config.ts`** sets `base: '/AlumorPricing/'` unconditionally, so every built asset URL, and `web/public/manifest.json`'s `start_url`/`scope`/icon paths, resolve correctly under that prefix. Any hardcoded absolute path to a `public/` asset in a component (e.g. the nav logo in `AppShell.tsx`) has to go through `import.meta.env.BASE_URL` instead of a bare `/logo.png`, or it breaks under the subpath.
-- **`web/src/main.tsx`** uses React Router's `HashRouter`, not `BrowserRouter`. GitHub Pages is a static file host with no server-side rewrite rule to send a deep-link refresh (e.g. `/AlumorPricing/projects/5`) back to `index.html` — it would just 404. Keeping the route in the URL fragment (`#/projects/5`) means the file server only ever sees a request for `index.html` itself; all routing after that is client-side, so this works identically on any static host with zero extra config.
+Deploys are manual, from your own machine (the build reads `web/.env` locally):
 
-Deploying updated `firestore.rules`/`firestore.indexes.json` is separate from the app deploy above — run `firebase deploy --only firestore:rules,firestore:indexes` by hand (or add it to CI) whenever those files change; the GitHub Pages workflow only publishes `web/dist`.
+```bash
+firebase login             # once
+npm run deploy:hosting     # builds web/dist, then firebase deploy --only hosting
+```
+
+For a throwaway test site from a branch, use a preview channel: `firebase hosting:channel:deploy <name>`.
+
+Firebase serves the app from the domain root, GitHub Pages (`.github/workflows/deploy.yml`, unchanged) from `/AlumorPricing/`. So `web/vite.config.ts` keeps `base: '/AlumorPricing/'` as the default and only the Firebase build overrides it: `build:firebase` = `vite build --base=/`. Asset paths in components go through `import.meta.env.BASE_URL`, and `web/public/manifest.json` uses relative URLs so it works under either base. `web/src/main.tsx` uses React Router's `HashRouter`, so a deep-link refresh never needs a server-side rewrite.
+
+Deploying updated `firestore.rules`/`firestore.indexes.json` is a separate step — run `firebase deploy --only firestore:rules,firestore:indexes` whenever those files change; `deploy:hosting` only publishes `web/dist`.
 
 ## Installing on a phone / offline use
 
-`web/public/manifest.json` + `web/public/sw.js` make the built app installable (iOS "Add to Home Screen", Android Chrome's "Install app" — the latter needs the whole app served over HTTPS, which GitHub Pages provides). `sw.js` caches the app shell as it's fetched ("cache-as-you-go"), so the app itself keeps loading offline — but every page still needs a live connection to Firebase to actually read or write data, unlike the old fully-offline Dexie version.
+`web/public/manifest.json` + `web/public/sw.js` make the built app installable (iOS "Add to Home Screen", Android Chrome's "Install app" — the latter needs the whole app served over HTTPS, which Firebase Hosting provides). `sw.js` caches the app shell as it's fetched ("cache-as-you-go"), so the app itself keeps loading offline — but every page still needs a live connection to Firebase to actually read or write data, unlike the old fully-offline Dexie version.
 
 ## Testing
 

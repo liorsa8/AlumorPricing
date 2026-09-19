@@ -10,6 +10,7 @@
     "build": "npm run build -w web",
     "preview": "npm run preview -w web",
     "test": "npm run test -w web",
-    "emulators": "firebase emulators:start --project demo-alumor-pricing"
+    "emulators": "firebase emulators:start --project demo-alumor-pricing",
+    "deploy:hosting": "npm run build:firebase -w web && firebase deploy --only hosting"
   }
 }

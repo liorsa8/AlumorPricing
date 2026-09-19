@@ -2,7 +2,7 @@
 
 אפליקציית הצעות מחיר פשוטה למפעל אלומיניום/PVC, ללא מנוע CAD — רק רשימת חלונות/דלתות ← הצעת מחיר מוכנה להדפסה.
 
-אין שרת ואין מסד נתונים מרוחק — כל המידע נשמר בדפדפן עצמו (IndexedDB), במכשיר שבו האפליקציה נפתחה.
+התחברות עם Google, וכל המידע נשמר ב-Firebase (Firestore) — משותף בין מכשירים, ותומך בכמה עסקים לכל משתמש.
 
 ## הרצה (פיתוח)
 
@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-האפליקציה תיפתח בכתובת `http://localhost:5173/AlumorPricing/`.
+האפליקציה תיפתח בכתובת `http://localhost:5173/AlumorPricing/`. נדרש קובץ `web/.env` (העתיקו מ-`web/.env.example`). להרצה מול אמולטור מקומי במקום הפרויקט האמיתי — ראו [docs/MANUAL_QA.md](docs/MANUAL_QA.md).
 
 ## בנייה לשימוש (build)
 
@@ -21,26 +21,27 @@ npm run build
 
 התוצאה היא אתר סטטי בתיקייה `web/dist`.
 
-## אחסון (GitHub Pages)
+## אחסון (Firebase Hosting)
 
-הפרויקט כולל workflow מוכן ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)) שבונה ומפרסם את האתר אוטומטית ל-GitHub Pages בכל push ל-`main`.
+האתר מפורסם ב-Firebase Hosting, באותו פרויקט של Auth ו-Firestore. הפרסום ידני, מהמחשב שלכם:
 
-**הפעלה חד-פעמית**: ב-GitHub, בעמוד ה-repo → Settings → Pages → תחת "Build and deployment" בחרו Source = **GitHub Actions**. מרגע זה כל push ל-`main` יפרסם גרסה חדשה אוטומטית, בכתובת:
-
+```bash
+firebase login             # פעם אחת
+npm run deploy:hosting     # בונה ומפרסם
 ```
-https://liorsa8.github.io/AlumorPricing/
-```
 
-כתובת זו כוללת HTTPS אמיתי מהיום הראשון (בחינם) — זו הכתובת שפותחים ב-iPhone/Android כדי להתקין את האפליקציה ("הוספה למסך הבית").
+הכתובת: `https://alumor-pricing.web.app` — HTTPS אמיתי, וזו הכתובת שפותחים ב-iPhone/Android כדי להתקין את האפליקציה ("הוספה למסך הבית").
+
+אם שינית את `firestore.rules` או `firestore.indexes.json`, יש לפרסם אותם בנפרד: `firebase deploy --only firestore:rules,firestore:indexes`.
 
 ## גיבוי
 
-כל המידע העסקי (לקוחות, קטלוג מחירים, הצעות מחיר) נשמר בדפדפן שבו האפליקציה רצה — **אין קובץ מסד נתונים בדיסק**, ואין סנכרון בין מכשירים.
+כל המידע העסקי (לקוחות, קטלוג מחירים, הצעות מחיר) נשמר ב-Firestore.
 
-בעמוד "הגדרות" יש כפתורי **ייצוא גיבוי** / **ייבוא מקובץ גיבוי** — אלה השומרים/משחזרים את כל המידע כקובץ JSON יחיד. מומלץ לייצא גיבוי מדי פעם, וגם לפני מעבר לדפדפן/מכשיר אחר.
+בעמוד "הגדרות" יש כפתורי **ייצוא גיבוי** / **ייבוא מקובץ גיבוי** — אלה שומרים/משחזרים את לקוחות והצעות המחיר של העסק כקובץ JSON יחיד. מומלץ לייצא גיבוי מדי פעם.
 
 ## מבנה הפרויקט
 
-- `web/` — React + Vite, כל הלוגיקה (כולל תמחור) והנתונים (IndexedDB) רצים בדפדפן. ממשק בעברית מימין לשמאל (RTL).
+- `web/` — React + Vite, הלוגיקה (כולל תמחור) רצה בדפדפן, והנתונים ב-Firebase (Auth + Firestore). ממשק בעברית מימין לשמאל (RTL).
 
 ראו את [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) לפירוט מלא של מודל הנתונים ונוסחאות החישוב.
