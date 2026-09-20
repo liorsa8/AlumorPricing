@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useCatalogAdminMode } from '../lib/useCatalogAdminMode';
 import { formatCurrency } from '../lib/format';
+import { useCollapsibleForm } from '../lib/useCollapsibleForm';
 
 export interface CatalogField {
   key: string;
@@ -57,6 +58,11 @@ export default function CatalogCrudPage({
   const [form, setForm] = useState<Record<string, string>>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { formOpen, formRef, openForm, closeForm } = useCollapsibleForm(() => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setError(null);
+  });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: [queryKey] });
 
@@ -72,7 +78,7 @@ export default function CatalogCrudPage({
   const createMutation = useMutation({
     mutationFn: () => api.post(endpoint, buildPayload()),
     onSuccess: () => {
-      setForm(emptyForm);
+      closeForm();
       invalidate();
     },
     onError: (e: Error) => setError(e.message),
@@ -81,8 +87,7 @@ export default function CatalogCrudPage({
   const updateMutation = useMutation({
     mutationFn: (id: string) => api.put(`${endpoint}/${id}`, buildPayload()),
     onSuccess: () => {
-      setForm(emptyForm);
-      setEditingId(null);
+      closeForm();
       invalidate();
     },
     onError: (e: Error) => setError(e.message),
@@ -108,6 +113,7 @@ export default function CatalogCrudPage({
       next[f.key] = value === null || value === undefined ? '' : String(value);
     }
     setForm(next);
+    openForm();
   }
 
   function submit(e: React.FormEvent) {
@@ -132,8 +138,7 @@ export default function CatalogCrudPage({
               checked={adminMode}
               onChange={(e) => {
                 setAdminMode(e.target.checked);
-                setEditingId(null);
-                setForm(emptyForm);
+                closeForm();
               }}
             />
             עריכת הקטלוג הגלובלי (משפיע על כל העסקים)
@@ -147,7 +152,13 @@ export default function CatalogCrudPage({
         </p>
       )}
 
-      <div className="card">
+      {!formOpen && (
+        <button className="btn btn-primary" style={{ marginBottom: 16 }} onClick={openForm}>
+          {addButtonLabel}
+        </button>
+      )}
+
+      <div className="card" ref={formRef} hidden={!formOpen}>
         <form onSubmit={submit}>
           <div className="form-grid">
             {fields.map((f) => (
@@ -164,21 +175,11 @@ export default function CatalogCrudPage({
           </div>
           {error && <div className="error-text">{error}</div>}
           <button type="submit" className="btn btn-primary">
-            {editingId ? 'עדכן' : addButtonLabel}
+            שמור
           </button>
-          {editingId && (
-            <button
-              type="button"
-              className="btn"
-              style={{ marginInlineStart: 8 }}
-              onClick={() => {
-                setEditingId(null);
-                setForm(emptyForm);
-              }}
-            >
-              ביטול
-            </button>
-          )}
+          <button type="button" className="btn" style={{ marginInlineStart: 8 }} onClick={closeForm}>
+            ביטול
+          </button>
         </form>
       </div>
 

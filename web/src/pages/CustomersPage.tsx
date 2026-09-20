@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Customer } from '../api/types';
+import { useCollapsibleForm } from '../lib/useCollapsibleForm';
 
 const emptyForm = { name: '', phone: '', email: '', address: '', notes: '' };
 
@@ -17,6 +18,11 @@ export default function CustomersPage() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { formOpen, formRef, openForm, closeForm } = useCollapsibleForm(() => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setError(null);
+  });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['customers', businessId] });
 
@@ -33,7 +39,7 @@ export default function CustomersPage() {
   const createMutation = useMutation({
     mutationFn: () => api.post(`/businesses/${businessId}/customers`, buildPayload()),
     onSuccess: () => {
-      setForm(emptyForm);
+      closeForm();
       invalidate();
     },
     onError: (e: Error) => setError(e.message),
@@ -42,8 +48,7 @@ export default function CustomersPage() {
   const updateMutation = useMutation({
     mutationFn: (id: string) => api.put(`/businesses/${businessId}/customers/${id}`, buildPayload()),
     onSuccess: () => {
-      setForm(emptyForm);
-      setEditingId(null);
+      closeForm();
       invalidate();
     },
     onError: (e: Error) => setError(e.message),
@@ -64,6 +69,7 @@ export default function CustomersPage() {
       address: c.address ?? '',
       notes: c.notes ?? '',
     });
+    openForm();
   }
 
   function submit(e: React.FormEvent) {
@@ -83,7 +89,13 @@ export default function CustomersPage() {
         <h2>לקוחות</h2>
       </div>
 
-      <div className="card">
+      {!formOpen && (
+        <button className="btn btn-primary" style={{ marginBottom: 16 }} onClick={openForm}>
+          הוסף לקוח
+        </button>
+      )}
+
+      <div className="card" ref={formRef} hidden={!formOpen}>
         <form onSubmit={submit}>
           <div className="form-grid">
             <div className="field">
@@ -105,21 +117,11 @@ export default function CustomersPage() {
           </div>
           {error && <div className="error-text">{error}</div>}
           <button type="submit" className="btn btn-primary">
-            {editingId ? 'עדכן' : 'הוסף לקוח'}
+            שמור
           </button>
-          {editingId && (
-            <button
-              type="button"
-              className="btn"
-              style={{ marginInlineStart: 8 }}
-              onClick={() => {
-                setEditingId(null);
-                setForm(emptyForm);
-              }}
-            >
-              ביטול
-            </button>
-          )}
+          <button type="button" className="btn" style={{ marginInlineStart: 8 }} onClick={closeForm}>
+            ביטול
+          </button>
         </form>
       </div>
 

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { useCatalogAdminMode } from '../../lib/useCatalogAdminMode';
+import { useCollapsibleForm } from '../../lib/useCollapsibleForm';
 import { Accessory, OpeningType } from '../../api/types';
 
 const emptyForm = { name_he: '', code: '', profile_factor: '', glass_area_ratio: '', sort_order: '0' };
@@ -28,6 +29,11 @@ export default function OpeningTypesPage() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { formOpen, formRef, openForm, closeForm } = useCollapsibleForm(() => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setError(null);
+  });
   const [kitEditingTypeId, setKitEditingTypeId] = useState<string | null>(null);
   const [kitQuantities, setKitQuantities] = useState<Record<string, string>>({});
 
@@ -46,7 +52,7 @@ export default function OpeningTypesPage() {
   const createMutation = useMutation({
     mutationFn: () => api.post(endpoint, buildPayload()),
     onSuccess: () => {
-      setForm(emptyForm);
+      closeForm();
       invalidate();
     },
     onError: (e: Error) => setError(e.message),
@@ -55,8 +61,7 @@ export default function OpeningTypesPage() {
   const updateMutation = useMutation({
     mutationFn: (id: string) => api.put(`${endpoint}/${id}`, buildPayload()),
     onSuccess: () => {
-      setForm(emptyForm);
-      setEditingId(null);
+      closeForm();
       invalidate();
     },
     onError: (e: Error) => setError(e.message),
@@ -89,6 +94,7 @@ export default function OpeningTypesPage() {
       glass_area_ratio: String(type.glass_area_ratio),
       sort_order: String(type.sort_order),
     });
+    openForm();
   }
 
   function openKitEditor(type: OpeningType) {
@@ -120,8 +126,7 @@ export default function OpeningTypesPage() {
               checked={adminMode}
               onChange={(e) => {
                 setAdminMode(e.target.checked);
-                setEditingId(null);
-                setForm(emptyForm);
+                closeForm();
                 setKitEditingTypeId(null);
               }}
             />
@@ -130,7 +135,13 @@ export default function OpeningTypesPage() {
         )}
       </div>
 
-      <div className="card">
+      {!formOpen && (
+        <button className="btn btn-primary" style={{ marginBottom: 16 }} onClick={openForm}>
+          הוסף סוג פתח
+        </button>
+      )}
+
+      <div className="card" ref={formRef} hidden={!formOpen}>
         <p className="text-muted" style={{ marginTop: 0 }}>
           "מקדם פרופיל" = מטרים של פרופיל ליחידת שטח (מ"ר). "יחס זכוכית" = החלק היחסי של הפתח שהוא זכוכית
           (השאר מסגרת). ערכים אלה מוערכים על ידיכם ולא מדויקים גיאומטרית — כווננו אותם לפי הניסיון שלכם.
@@ -177,21 +188,11 @@ export default function OpeningTypesPage() {
           </div>
           {error && <div className="error-text">{error}</div>}
           <button type="submit" className="btn btn-primary">
-            {editingId ? 'עדכן' : 'הוסף סוג פתח'}
+            שמור
           </button>
-          {editingId && (
-            <button
-              type="button"
-              className="btn"
-              style={{ marginInlineStart: 8 }}
-              onClick={() => {
-                setEditingId(null);
-                setForm(emptyForm);
-              }}
-            >
-              ביטול
-            </button>
-          )}
+          <button type="button" className="btn" style={{ marginInlineStart: 8 }} onClick={closeForm}>
+            ביטול
+          </button>
         </form>
       </div>
 
