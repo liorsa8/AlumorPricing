@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import PrintableQuote from './PrintableQuote';
+import { formatCurrency } from '../lib/format';
 import type { ProjectDetail } from '../api/types';
 
 const project = {
@@ -58,5 +59,17 @@ describe('PrintableQuote', () => {
     expect(openingsTable).not.toBeNull();
     expect(openingsTable!.querySelectorAll('thead th').length).toBeGreaterThan(0);
     expect(openingsTable!.querySelectorAll('tbody tr').length).toBe(project.openings.length);
+  });
+
+  // Phone regression: the totals amounts rendered off-screen. The totals must stay in their own
+  // box, outside the (horizontally scrolling, min-width'd) openings table — see print.css.test.ts.
+  it('renders the totals with every amount, outside the openings table wrapper', () => {
+    const { container } = render(<PrintableQuote project={project} settings={undefined} />);
+
+    const totals = container.querySelector('.print-totals')!;
+    expect(totals.closest('.print-table-wrap')).toBeNull();
+    for (const amount of [project.pre_vat_total, project.vat_amount, project.total]) {
+      expect(totals.textContent).toContain(formatCurrency(amount));
+    }
   });
 });

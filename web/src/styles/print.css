@@ -81,7 +81,8 @@
    correctly in both places. */
 .print-totals {
   margin-top: 16px;
-  width: 320px;
+  width: 100%;
+  max-width: 320px;
   margin-inline-start: auto;
 }
 
@@ -144,8 +145,10 @@
 
   /* Kept as a real row-per-opening table on every screen size, by explicit request — a
      narrow phone just scrolls the table horizontally (.print-table-wrap, above) rather than
-     restacking it into cards. min-width keeps columns from being crushed unreadable. */
-  .print-page table {
+     restacking it into cards. min-width keeps columns from being crushed unreadable.
+     Scoped to the openings table ONLY: on a bare `.print-page table` it also hit the totals
+     table, forcing it to 640px inside its ~320px box so the amounts rendered off-screen. */
+  .print-table-wrap table {
     min-width: 640px;
   }
 }

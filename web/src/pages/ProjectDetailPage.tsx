@@ -5,7 +5,13 @@ import { api } from '../api/client';
 import { Business, Customer, GlassType, Opening, OpeningType, ProfileSystem, ProjectDetail } from '../api/types';
 import { formatCurrency, STATUS_LABELS } from '../lib/format';
 import { shareQuoteImage } from '../lib/shareQuote';
+import { useCollapsibleForm } from '../lib/useCollapsibleForm';
 import PrintableQuote from '../components/PrintableQuote';
+
+// Kept in one place: the quote's line item is a window/door today, and this title is the thing
+// to rename if the product ever covers other kinds of items.
+const ADD_ITEM_LABEL = 'הוספת פריט להצעה';
+const EDIT_ITEM_LABEL = 'עריכת פתח';
 
 const emptyOpeningForm = {
   opening_type_id: '',
@@ -16,6 +22,10 @@ const emptyOpeningForm = {
   height_mm: '',
   quantity: '1',
 };
+
+function headerFromProject(p: ProjectDetail) {
+  return { customer_id: p.customer_id ?? '', title: p.title, notes: p.notes ?? '', discount_pct: String(p.discount_pct) };
+}
 
 export default function ProjectDetailPage() {
   const { businessId, id: projectId } = useParams<{ businessId: string; id: string }>();
@@ -70,15 +80,11 @@ export default function ProjectDetailPage() {
 
   const [headerForm, setHeaderForm] = useState({ customer_id: '', title: '', notes: '', discount_pct: '0' });
   useEffect(() => {
-    if (project) {
-      setHeaderForm({
-        customer_id: project.customer_id ?? '',
-        title: project.title,
-        notes: project.notes ?? '',
-        discount_pct: String(project.discount_pct),
-      });
-    }
+    if (project) setHeaderForm(headerFromProject(project));
   }, [project]);
+  const details = useCollapsibleForm(() => {
+    if (project) setHeaderForm(headerFromProject(project));
+  });
 
   const saveHeaderMutation = useMutation({
     mutationFn: () =>
@@ -88,7 +94,10 @@ export default function ProjectDetailPage() {
         notes: headerForm.notes,
         discount_pct: Number(headerForm.discount_pct) || 0,
       }),
-    onSuccess: invalidateProject,
+    onSuccess: () => {
+      invalidateProject();
+      details.closeForm();
+    },
   });
 
   const changeStatusMutation = useMutation({
@@ -104,6 +113,11 @@ export default function ProjectDetailPage() {
   const [openingForm, setOpeningForm] = useState(emptyOpeningForm);
   const [editingOpeningId, setEditingOpeningId] = useState<number | null>(null);
   const [openingError, setOpeningError] = useState<string | null>(null);
+  const item = useCollapsibleForm(() => {
+    setEditingOpeningId(null);
+    setOpeningForm(emptyOpeningForm);
+    setOpeningError(null);
+  });
 
   function buildOpeningPayload() {
     return {
@@ -120,7 +134,7 @@ export default function ProjectDetailPage() {
   const addOpeningMutation = useMutation({
     mutationFn: () => api.post(`${base}/projects/${projectId}/openings`, buildOpeningPayload()),
     onSuccess: () => {
-      setOpeningForm(emptyOpeningForm);
+      item.closeForm();
       invalidateProject();
     },
     onError: (e: Error) => setOpeningError(e.message),
@@ -130,8 +144,7 @@ export default function ProjectDetailPage() {
     mutationFn: (openingId: number) =>
       api.put(`${base}/projects/${projectId}/openings/${openingId}`, buildOpeningPayload()),
     onSuccess: () => {
-      setOpeningForm(emptyOpeningForm);
-      setEditingOpeningId(null);
+      item.closeForm();
       invalidateProject();
     },
     onError: (e: Error) => setOpeningError(e.message),
@@ -162,6 +175,7 @@ export default function ProjectDetailPage() {
       height_mm: String(o.height_mm),
       quantity: String(o.quantity),
     });
+    item.openForm();
   }
 
   function submitOpening(e: React.FormEvent) {
@@ -228,85 +242,127 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
+      {/* Quote details: a short summary, with the edit fields behind a button (same list-first
+          pattern as the catalog/customers pages) so the quote's lines stay near the top. */}
       <div className="card">
-        <div className="form-grid">
-          <div className="field">
-            <label>לקוח</label>
-            <select
-              value={headerForm.customer_id}
-              onChange={(e) => {
-                if (e.target.value === '__new__') {
-                  navigate(`/b/${businessId}/customers`);
-                  return;
-                }
-                setHeaderForm({ ...headerForm, customer_id: e.target.value });
-              }}
-              onBlur={() => saveHeaderMutation.mutate()}
-            >
-              <option value="">בחר לקוח...</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-              <option value="__new__">+ הוספת לקוח חדש</option>
-            </select>
-          </div>
-          <div className="field">
-            <label>כותרת / תיאור העבודה</label>
-            <input
-              value={headerForm.title}
-              onChange={(e) => setHeaderForm({ ...headerForm, title: e.target.value })}
-              onBlur={() => saveHeaderMutation.mutate()}
-            />
-          </div>
-          <div className="field">
-            <label>סטטוס</label>
-            <select
-              value={project.status}
-              onChange={(e) => {
-                const newStatus = e.target.value;
-                if (project.status === 'draft' && newStatus !== 'draft') {
-                  const ok = confirm('שינוי סטטוס מ"טיוטה" יקפיא את המחירים ויחסום ערכית פתחים. להמשיך?');
-                  if (!ok) return;
-                }
-                changeStatusMutation.mutate(newStatus);
-              }}
-            >
-              {Object.entries(STATUS_LABELS).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label>הנחה (%)</label>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="100"
-              value={headerForm.discount_pct}
-              onChange={(e) => setHeaderForm({ ...headerForm, discount_pct: e.target.value })}
-              onBlur={() => saveHeaderMutation.mutate()}
-            />
-          </div>
+        <div>
+          <span className="text-muted">לקוח: </span>
+          <strong>{project.customer_name || 'לא נבחר לקוח'}</strong>
         </div>
-        <div className="field">
-          <label>הערות</label>
-          <textarea
-            value={headerForm.notes}
-            onChange={(e) => setHeaderForm({ ...headerForm, notes: e.target.value })}
-            onBlur={() => saveHeaderMutation.mutate()}
-            rows={2}
-          />
+        {project.title && (
+          <div>
+            <span className="text-muted">כותרת: </span>
+            {project.title}
+          </div>
+        )}
+        <div className="field" style={{ maxWidth: 240, marginTop: 12 }}>
+          <label>סטטוס</label>
+          <select
+            value={project.status}
+            onChange={(e) => {
+              const newStatus = e.target.value;
+              if (project.status === 'draft' && newStatus !== 'draft') {
+                const ok = confirm('שינוי סטטוס מ"טיוטה" יקפיא את המחירים ויחסום ערכית פתחים. להמשיך?');
+                if (!ok) return;
+              }
+              changeStatusMutation.mutate(newStatus);
+            }}
+          >
+            {Object.entries(STATUS_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+        {!details.formOpen && (
+          <button className="btn" style={{ marginTop: 12 }} onClick={details.openForm}>
+            {project.customer_id ? 'עריכת פרטי הצעה' : 'הוסף לקוח / פרטי הצעה'}
+          </button>
+        )}
+        <div ref={details.formRef} hidden={!details.formOpen} style={{ marginTop: 12 }}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              saveHeaderMutation.mutate();
+            }}
+          >
+            <div className="form-grid">
+              <div className="field">
+                <label>לקוח</label>
+                <select
+                  value={headerForm.customer_id}
+                  onChange={(e) => {
+                    if (e.target.value === '__new__') {
+                      navigate(`/b/${businessId}/customers`);
+                      return;
+                    }
+                    setHeaderForm({ ...headerForm, customer_id: e.target.value });
+                  }}
+                >
+                  <option value="">בחר לקוח...</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                  <option value="__new__">+ הוספת לקוח חדש</option>
+                </select>
+              </div>
+              <div className="field">
+                <label>כותרת / תיאור העבודה</label>
+                <input value={headerForm.title} onChange={(e) => setHeaderForm({ ...headerForm, title: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>הנחה (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  value={headerForm.discount_pct}
+                  onChange={(e) => setHeaderForm({ ...headerForm, discount_pct: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="field" style={{ marginBottom: 12 }}>
+              <label>הערות</label>
+              <textarea
+                value={headerForm.notes}
+                onChange={(e) => setHeaderForm({ ...headerForm, notes: e.target.value })}
+                rows={2}
+              />
+            </div>
+            <button type="submit" className="btn btn-primary">
+              שמור
+            </button>
+            <button type="button" className="btn" style={{ marginInlineStart: 8 }} onClick={details.closeForm}>
+              ביטול
+            </button>
+          </form>
         </div>
       </div>
 
       {isDraft && (
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>{editingOpeningId ? 'עריכת פתח' : 'הוספת חלון / דלת'}</h3>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          {!item.formOpen && (
+            <button className="btn btn-primary" onClick={item.openForm}>
+              {ADD_ITEM_LABEL}
+            </button>
+          )}
+          <button
+            className="btn"
+            onClick={() => recalculateMutation.mutate()}
+            title="מחשב מחדש את כל הפתחים לפי המחירים העדכניים בקטלוג"
+          >
+            חשב מחדש לפי קטלוג נוכחי
+          </button>
+        </div>
+      )}
+
+      {isDraft && (
+        <div className="card" ref={item.formRef} hidden={!item.formOpen}>
+          <h3 style={{ marginTop: 0 }}>{editingOpeningId ? EDIT_ITEM_LABEL : ADD_ITEM_LABEL}</h3>
           <form onSubmit={submitOpening}>
             <div className="form-grid">
               <div className="field">
@@ -387,29 +443,10 @@ export default function ProjectDetailPage() {
             </div>
             {openingError && <div className="error-text">{openingError}</div>}
             <button type="submit" className="btn btn-primary">
-              {editingOpeningId ? 'עדכן פתח' : 'הוסף להצעה'}
+              שמור
             </button>
-            {editingOpeningId && (
-              <button
-                type="button"
-                className="btn"
-                style={{ marginInlineStart: 8 }}
-                onClick={() => {
-                  setEditingOpeningId(null);
-                  setOpeningForm(emptyOpeningForm);
-                }}
-              >
-                ביטול
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn"
-              style={{ marginInlineStart: 8 }}
-              onClick={() => recalculateMutation.mutate()}
-              title='מחשב מחדש את כל הפתחים לפי המחירים העדכניים בקטלוג'
-            >
-              חשב מחדש לפי קטלוג נוכחי
+            <button type="button" className="btn" style={{ marginInlineStart: 8 }} onClick={item.closeForm}>
+              ביטול
             </button>
           </form>
         </div>

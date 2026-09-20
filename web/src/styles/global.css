@@ -244,6 +244,7 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .field label {
@@ -254,6 +255,8 @@ tbody tr:hover {
 .field input,
 .field select,
 .field textarea {
+  width: 100%;
+  min-width: 0;
   padding: 8px 10px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
@@ -404,8 +407,10 @@ tbody tr:hover {
     font-size: 19px;
   }
 
+  /* minmax(0, ...) not a bare 1fr: 1fr is minmax(auto, 1fr), so a select with long option text
+     forced the column wider than the card and clipped the fields' left edge (the dropdown arrow). */
   .form-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .totals-panel {
