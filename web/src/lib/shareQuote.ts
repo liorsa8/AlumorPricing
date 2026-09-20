@@ -1,13 +1,10 @@
 import html2canvas from 'html2canvas';
 import { ProjectDetail } from '../api/types';
-import { formatCurrency } from './format';
 import { downloadBlob } from './download';
 
 export function buildQuoteShareText(project: ProjectDetail): { label: string; summary: string } {
   const label = `הצעת מחיר #${project.quote_number}`;
-  const summary = `${label}${project.customer_name ? ` עבור ${project.customer_name}` : ''} — סה"כ לתשלום ${formatCurrency(
-    project.total
-  )}`;
+  const summary = `${label}${project.customer_name ? ` עבור ${project.customer_name}` : ''}`;
   return { label, summary };
 }
 

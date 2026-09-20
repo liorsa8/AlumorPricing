@@ -19,11 +19,12 @@ function fakeCanvas(blob: Blob | null) {
 }
 
 describe('buildQuoteShareText', () => {
-  it('includes the customer name and the formatted total', () => {
+  it('is just the quote number and the customer name, without the total', () => {
     const { label, summary } = buildQuoteShareText(project);
     expect(label).toBe('הצעת מחיר #1');
-    expect(summary).toContain('לקוח בדיקה');
-    expect(summary).toContain('1,746.00');
+    expect(summary).toBe('הצעת מחיר #1 עבור לקוח בדיקה');
+    expect(summary).not.toContain('1,746');
+    expect(summary).not.toContain('סה');
   });
 
   it('omits the customer clause when there is no customer yet', () => {
