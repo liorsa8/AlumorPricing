@@ -80,4 +80,28 @@ describe('AuthProvider — query cache clearing on auth transitions', () => {
 
     expect(clearSpy).not.toHaveBeenCalled();
   });
+
+  it('restores remembered results at sign-in and forgets them at sign-out', async () => {
+    localStorage.setItem(
+      'alumor:query-cache:user-a',
+      JSON.stringify({ x: { queryKey: ['businesses'], data: [{ id: 'b1' }] } })
+    );
+    const queryClient = new QueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>{null}</AuthProvider>
+      </QueryClientProvider>
+    );
+
+    await act(async () => {
+      await authStateCallback(fakeUser('user-a'));
+    });
+    expect(queryClient.getQueryData(['businesses'])).toEqual([{ id: 'b1' }]);
+
+    await act(async () => {
+      await authStateCallback(null);
+    });
+    expect(queryClient.getQueryData(['businesses'])).toBeUndefined();
+    expect(localStorage.getItem('alumor:query-cache:user-a')).toBeNull();
+  });
 });

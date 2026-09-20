@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, ReactNode } fro
 import { GoogleAuthProvider, User, onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut } from 'firebase/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { auth } from '../db/firebaseConfig';
+import { forgetPersistedUser, startPersistingQueries, switchPersistedUser } from '../lib/persistedQueryCache';
 
 interface AuthContextValue {
   user: User | null;
@@ -23,6 +24,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // triggers a pointless clear.
   const previousUidRef = useRef<string | null | 'unset'>('unset');
 
+  useEffect(() => startPersistingQueries(queryClient), [queryClient]);
+
   useEffect(() => {
     return onAuthStateChanged(auth, async (nextUser) => {
       const nextUid = nextUser?.uid ?? null;
@@ -36,6 +39,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (previousUidRef.current !== 'unset' && previousUidRef.current !== nextUid) {
         queryClient.clear();
       }
+      // Sign-out or account switch: drop the previous user's remembered results from the device.
+      // Then bring back this user's own, so screens render instantly while they refetch.
+      if (typeof previousUidRef.current === 'string' && previousUidRef.current !== nextUid) {
+        forgetPersistedUser(previousUidRef.current);
+      }
+      switchPersistedUser(queryClient, nextUid);
       previousUidRef.current = nextUid;
 
       setUser(nextUser);
