@@ -10,7 +10,7 @@ A price-quoting tool for aluminum/PVC window & door fabrication shops. Hebrew, r
 
 ## Why this shape
 
-The app deliberately has **no CAD/geometry engine**. Material quantities are estimated from two per-opening-type calibration factors (`profile_factor`, `glass_area_ratio`) rather than a real cut-list, and hardware (hinges, locks, gaskets...) comes from a default kit per opening type. This trades geometric precision for something a shop owner can actually calibrate and maintain themselves.
+The app deliberately has **no CAD/geometry engine**. Material cost is a single ₪/מ"ר base price per opening type (`price_per_sqm`, set directly against real aluminum-pricing sites the shop owner can look up — e.g. "קליל 7000 ≈ 900-1,500 ₪/מ"ר") plus an optional glass surcharge, rather than a real cut-list; hardware (hinges, locks, gaskets...) comes from a default kit per opening type. An earlier version derived material cost from two per-opening-type calibration factors (meters of profile per m², fraction glass) — abandoned after a mistyped factor turned a 1×1m window into a ~756,000 ₪ line in production; nobody could eyeball whether those factors were reasonable the way they can a ₪/מ"ר figure.
 
 The app also deliberately avoids running its own server. An earlier version kept all data in the browser's own IndexedDB (via Dexie) with **no backend at all** — free to host, but each device had its own independent, unsynced copy of the data, and there was no way for more than one person (or business) to share the same catalog or customer list. Moving to Firebase Auth + Firestore keeps the "no server to run or maintain" property (Firebase is a managed backend) while adding real multi-device sync, multi-business support (one Google account can own several businesses, each with its own customers/quotes/catalog), and a shared, admin-maintained global catalog that every business's own catalog is layered on top of. The trade-off, accepted deliberately: the app now requires a network connection and a Google sign-in — see "Import / export" below for the offline safety-copy story that replaces the old per-device independence.
 
@@ -58,7 +58,7 @@ web/
       CustomersPage.tsx, SettingsPage.tsx (also: backup export/import, catalog export, About)
       catalog/{ProfileSystemsPage,GlassTypesPage,AccessoriesPage}.tsx  — thin configs over
                                        CatalogCrudPage
-      catalog/OpeningTypesPage.tsx — not generic: has its own factor fields + accessory-kit editor
+      catalog/OpeningTypesPage.tsx — not generic: has its own price/has_glass fields + accessory-kit editor
     styles/{global.css,print.css}
   public/manifest.json, sw.js       — PWA install + offline app-shell caching
 scripts/firebase-admin/             — Node scripts using the Admin SDK, run by a human from a
@@ -75,14 +75,14 @@ Firestore, read/written through `web/src/db/firestoreApi.ts`. Every business-sco
 **Businesses** — `businesses/{businessId}`: one document per business a user owns. Holds what used to be the single `settings` row: `labor_pct`, `installation_pct`, `vat_pct`, `company_name/phone/address/email/tax_id/logo`, `standard_terms`, plus `next_quote_number` and `owner_uid`.
 
 - `businesses/{businessId}/customers/{id}`
-- `businesses/{businessId}/projects/{id}` — a quote: `quote_number` (auto-incrementing per business), `status` (`draft → sent/accepted/rejected/archived`), `customer_id`, `discount_pct`, computed totals (`material_subtotal`, `labor_amount`, `installation_amount`, `discount_amount`, `pre_vat_total`, `vat_amount`, `total`) plus `*_pct_snapshot` fields, and an embedded `openings` array (line items are never their own Firestore documents — see below).
+- `businesses/{businessId}/projects/{id}` — a quote: `quote_number` (auto-incrementing per business), `status` (`draft → sent/accepted/rejected/archived`), `customer_id`, `discount_pct`, computed totals (`material_subtotal`, `labor_amount`, `installation_amount`, `discount_amount`, `pre_vat_total`, `vat_amount`, `total`) plus `*_pct_snapshot` fields, and an embedded `openings` array (line items are never their own Firestore documents — see below). Each opening can carry its own `labor_pct_override`/`discount_pct_override` (`null` = use the quote's own, see "Pricing" below).
 
 **Catalog — global + per-business overrides, merged at read time** (`web/src/db/catalogMerge.ts`):
 - `catalog_profile_systems`, `catalog_glass_types`, `catalog_accessories`, `catalog_opening_types` — the shared, admin-maintained global catalog. Readable by any signed-in user, writable only by an admin (a custom Firebase Auth claim — see "Admin scripts" below).
 - `businesses/{businessId}/profile_systems_overrides`, `glass_types_overrides`, `accessories_overrides`, `opening_types_overrides` — a business's own edits. Editing a global item creates a same-id override that shadows it ("forking"); a business can also add wholly its own items (an override with no matching global id). `mergeCatalog()` combines the two into one list per business, stamping each row with `forked_from_global` so the UI can offer "revert to default" only on rows that actually shadow a global item.
 - `opening_types` carry their default accessory kit as embedded `{accessory_id, quantity}` refs (global or per-business, matching whichever catalog they belong to) — resolved against the live accessory catalog on every read, never frozen except inside a placed quote's own openings.
 
-**Why so much snapshotting?** Once a quote is sent, its price must never silently drift because someone later edited the catalog or the business's settings. Every opening (and its accessory lines) freezes the catalog values it was priced with (`*_snapshot` fields: names, factors, prices); every project freezes the percentages in effect. While a project's `status` is `draft`, `firestoreApi.ts` keeps re-deriving prices from the *live*, merged catalog/settings on every edit (so the shop owner sees current numbers while building); the moment status leaves `draft`, that stops and the frozen snapshot is what's shown from then on. This same freeze point is what blocks further opening edits — both `firestoreApi.ts` and `firestore.rules` independently reject changes to `openings`/`next_opening_id` once `status !== 'draft'` (the rules check is the actual enforcement; the app-side check exists only to produce a friendlier error).
+**Why so much snapshotting?** Once a quote is sent, its price must never silently drift because someone later edited the catalog or the business's settings. Every opening (and its accessory lines) freezes the catalog values it was priced with (`*_snapshot` fields: names, prices); every project freezes the percentages in effect. While a project's `status` is `draft`, `firestoreApi.ts` keeps re-deriving prices from the *live*, merged catalog/settings on every edit (so the shop owner sees current numbers while building); the moment status leaves `draft`, that stops and the frozen snapshot is what's shown from then on. This same freeze point is what blocks further opening edits — both `firestoreApi.ts` and `firestore.rules` independently reject changes to `openings`/`next_opening_id` once `status !== 'draft'` (the rules check is the actual enforcement; the app-side check exists only to produce a friendlier error).
 
 Firestore has no foreign-key cascade — deleting a business does **not** cascade-delete its `customers`/`projects`/override subcollections, so every route that reads a parent document (e.g. a project's business) checks `exists()` before use rather than assuming the parent is still there.
 
@@ -100,31 +100,46 @@ The actual multi-tenant enforcement, independent of anything the app itself chec
 
 Pure functions, no side effects, easy to unit-test in isolation:
 
+`profile_system` is a pure display label (shown as "סדרה" on the printed quote) — it prices
+nothing. `glass_type.price_per_sqm` applies over the opening's full area, as a surcharge on top
+of the opening type's own base price; an opening type with no glass component at all (a net, a
+shutter, a monoblock box — `has_glass: false`) skips picking a glass type and gets no surcharge.
+
 ```
 area_sqm          = (width_mm/1000) × (height_mm/1000)
-profile_length_m  = area_sqm × opening_type.profile_factor
-glass_area_sqm    = area_sqm × opening_type.glass_area_ratio
-material_cost     = profile_length_m × profile_system.price_per_meter
-                   + glass_area_sqm   × glass_type.price_per_sqm
+material_cost     = area_sqm × (opening_type.price_per_sqm + glass_type.price_per_sqm)
 accessories_cost  = Σ (accessory.quantity × accessory.price_per_unit)
 unit_subtotal     = material_cost + accessories_cost
 line_subtotal     = unit_subtotal × quantity
 
+# Per opening — its own labor%/discount% if it has an override, else the quote's own (an
+# opening can override just its own labor% or discount%, e.g. a big job's labor cut on one
+# item instead of discounting the whole quote — see ProjectDetailPage's item form):
+line_labor_pct    = opening.labor_pct_override ?? project.labor_pct
+line_discount_pct = opening.discount_pct_override ?? project.discount_pct
+line_labor        = line_subtotal × line_labor_pct / 100
+line_installation = line_subtotal × installation_pct / 100   (always project-wide, never overridden)
+line_before_discount = line_subtotal + line_labor + line_installation
+line_discount     = line_before_discount × line_discount_pct / 100
+
 material_subtotal = Σ line_subtotal over all openings
-labor_amount      = material_subtotal × labor_pct / 100
-installation_amount = material_subtotal × installation_pct / 100
-subtotal_before_discount = material_subtotal + labor_amount + installation_amount
-discount_amount   = subtotal_before_discount × discount_pct / 100
-pre_vat_total     = subtotal_before_discount − discount_amount
+labor_amount      = Σ line_labor
+installation_amount = Σ line_installation
+discount_amount   = Σ line_discount
+pre_vat_total     = Σ (line_before_discount − line_discount)
 vat_amount        = pre_vat_total × vat_pct / 100
 total             = pre_vat_total + vat_amount
 ```
+
+When no opening overrides labor%/discount%, this reduces to exactly the same totals as applying
+one project-wide labor%/discount% to the material subtotal as a lump sum — `computeProjectTotals`
+is a strict generalization, not a behavior change, for the common no-override case.
 
 Rounding happens only at display time (`formatCurrency`), never mid-calculation, so the printed sum of line items always reconciles exactly with the totals below it.
 
 **Two different views of a line item's price**, both intentional:
 - The **quote builder** (`ProjectDetailPage`) shows the raw `unit_subtotal`/`line_subtotal` (material + accessories only) per line, with labor/installation/discount broken out as separate rows in the totals panel — useful for the shop owner building the quote.
-- The **printed/shared quote** (`ProjectPrintPage`) shows only three totals (pre-VAT, VAT, grand total) and *inflates each line's displayed price* by `(1 + labor_pct/100 + installation_pct/100) × (1 − discount_pct/100)` so that summing the visible line prices matches the visible pre-VAT total — a customer-facing document where the numbers must add up on their own, without a labor/installation breakdown to explain the gap.
+- The **printed/shared quote** (`ProjectPrintPage`) shows only three totals (pre-VAT, VAT, grand total) and *inflates each line's displayed price* by `lineMarkupFactor` — `(1 + labor_pct/100 + installation_pct/100) × (1 − discount_pct/100)`, using that opening's own override if it has one — so that summing the visible line prices matches the visible pre-VAT total — a customer-facing document where the numbers must add up on their own, without a labor/installation breakdown to explain the gap.
 
 ## The Firestore "API" (`web/src/db/firestoreApi.ts`)
 
@@ -145,13 +160,13 @@ For local development against the emulator, start it with `npm run emulators` (r
 
 RTL is applied once, at the root (`<html dir="rtl" lang="he">` in `web/index.html`), plus CSS logical properties (`margin-inline-start`, `text-align: start`) throughout instead of `left`/`right`. Currency renders via `Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS' })`.
 
-`CatalogCrudPage.tsx` is a single generic component (fields, endpoint, labels passed as props) driving the three simple catalogs — `opening_types` is deliberately **not** built on it, since it has extra structure (numeric factors, an embedded accessory-kit editor) that would strain a shared abstraction. Both it and `OpeningTypesPage.tsx` share `useCatalogAdminMode.ts` for the admin global/business toggle.
+`CatalogCrudPage.tsx` is a single generic component (fields, endpoint, labels passed as props) driving the three simple catalogs — `opening_types` is deliberately **not** built on it, since it has extra structure (a `has_glass` toggle, an embedded accessory-kit editor) that would strain a shared abstraction; its own plain fields still share `db/firestoreApi.ts`'s `buildFieldsFromBody` helper with the three generic catalogs, just via hand-written routes instead of the shared route-registration functions. Both it and `OpeningTypesPage.tsx` share `useCatalogAdminMode.ts` for the admin global/business toggle.
 
 Data fetching is TanStack Query end to end — every page's data is a `useQuery`/`useMutation` pair against `web/src/api/client.ts`. `AuthProvider` clears the whole query cache on any change of signed-in user (not just this tab's own sign-out button — Firebase Auth syncs sign-out across every tab of the same browser), since query keys aren't scoped by uid and a second account on the same device would otherwise briefly see the first account's still-cached data.
 
-## Sharing a quote (WhatsApp / Gmail)
+## Sharing a quote
 
-`ProjectDetailPage` has "וואטסאפ" and "Gmail" buttons that open a pre-filled share link (`wa.me` / Gmail's web-compose URL) with a short text summary and the total — no download or attachment step. `web/src/lib/shareQuote.ts` also still has an unused `shareQuoteImage` helper (rasterizes the quote via `html2canvas` and hands it to the Web Share API) kept in code but not wired to any button — the shop owner didn't need it day-to-day, but it's there if that changes.
+`ProjectDetailPage` has one "שתף" button, not one per app — `web/src/lib/shareQuote.ts`'s `shareQuoteImage` rasterizes an off-screen copy of the quote via `html2canvas` (at a fixed 800px width — see `print.css`'s `.share-capture-node` override, needed because a mobile-only CSS rule keyed off the real device viewport would otherwise wrongly apply to this fixed-width node too) and hands the resulting image to the native Web Share API, so the person picks WhatsApp/Gmail/anything else installed themselves. There's no way for a web page to attach a file directly into one specific app — `wa.me`/Gmail-compose links only ever carry text — a native share sheet is the only mechanism that can hand over an actual file at all. Where Web Share isn't supported (mainly desktop browsers), it falls back to downloading the image with an on-screen notice to attach it manually.
 
 ## Import / export (`web/src/lib/dataBackup.ts`)
 
@@ -196,7 +211,7 @@ Deploying updated `firestore.rules`/`firestore.indexes.json` is a separate step 
 npm test   # firebase emulators:exec ... vitest run
 ```
 
-[Vitest](https://vitest.dev/), with the local Firebase emulator (`firebase.json`) standing in for real Firestore/Auth — `npm test` wraps `vitest run` in `firebase emulators:exec` so the suite always has a live, empty emulator instance to run against; `web/.env.test`'s `VITE_USE_FIREBASE_EMULATOR=true` is what actually points the client SDK there (the emulator env vars the CLI sets, unlike with the Admin SDK, aren't picked up automatically). Two suites: `lib/quoteCalculator.test.ts` (the pricing math, pinned against hand-verified numbers) and `db/firestoreApi.test.ts` (business/auth-scoped CRUD and access-control behavior against the real emulator, including the empty-draft cleanup's grace period — it once deleted a quote out from under someone still actively building it, before the age check existed).
+[Vitest](https://vitest.dev/), with the local Firebase emulator (`firebase.json`) standing in for real Firestore/Auth — `npm test` wraps `vitest run` in `firebase emulators:exec` so the suite always has a live, empty emulator instance to run against; `web/.env.test`'s `VITE_USE_FIREBASE_EMULATOR=true` is what actually points the client SDK there (the emulator env vars the CLI sets, unlike with the Admin SDK, aren't picked up automatically). Most component/page tests (`pages/`, `components/`, `auth/`) mock `api/client` entirely and never touch the emulator; only `db/firestoreApi*.test.ts` (business/auth-scoped CRUD and access-control behavior, merged-catalog fork/revert, per-item labor/discount overrides, including the empty-draft cleanup's grace period — it once deleted a quote out from under someone still actively building it, before the age check existed) need it live. `lib/quoteCalculator.test.ts` pins the pricing math against hand-verified numbers; `styles/*.test.ts` are CSS "tripwire" tests (jsdom can't lay anything out, so they read the stylesheet as text) pinning down specific past regressions rather than asserting real layout.
 
 ## Versioning
 

@@ -21,6 +21,9 @@ const emptyOpeningForm = {
   width_mm: '',
   height_mm: '',
   quantity: '1',
+  // '' means "use the quote's own labor%/discount%" — see buildOpeningPayload.
+  labor_pct_override: '',
+  discount_pct_override: '',
 };
 
 function headerFromProject(p: ProjectDetail) {
@@ -128,6 +131,8 @@ export default function ProjectDetailPage() {
       width_mm: Number(openingForm.width_mm),
       height_mm: Number(openingForm.height_mm),
       quantity: Number(openingForm.quantity) || 1,
+      labor_pct_override: openingForm.labor_pct_override === '' ? null : Number(openingForm.labor_pct_override),
+      discount_pct_override: openingForm.discount_pct_override === '' ? null : Number(openingForm.discount_pct_override),
     };
   }
 
@@ -174,9 +179,17 @@ export default function ProjectDetailPage() {
       width_mm: String(o.width_mm),
       height_mm: String(o.height_mm),
       quantity: String(o.quantity),
+      labor_pct_override: o.labor_pct_override === null ? '' : String(o.labor_pct_override),
+      discount_pct_override: o.discount_pct_override === null ? '' : String(o.discount_pct_override),
     });
     item.openForm();
   }
+
+  // Some opening types have no glass component at all (a net, a shutter, an aluminum box) — for
+  // those, the glass field is hidden and never required. Defaults to requiring it (true) before
+  // any type is picked yet, matching the common case.
+  const selectedOpeningType = openingTypes.find((t) => t.id === openingForm.opening_type_id);
+  const needsGlass = selectedOpeningType ? selectedOpeningType.has_glass : true;
 
   function submitOpening(e: React.FormEvent) {
     e.preventDefault();
@@ -184,11 +197,13 @@ export default function ProjectDetailPage() {
     if (
       !openingForm.opening_type_id ||
       !openingForm.profile_system_id ||
-      !openingForm.glass_type_id ||
+      (needsGlass && !openingForm.glass_type_id) ||
       !openingForm.width_mm ||
       !openingForm.height_mm
     ) {
-      setOpeningError('יש למלא סוג פתח, מערכת פרופיל, סוג זכוכית, רוחב וגובה');
+      setOpeningError(
+        needsGlass ? 'יש למלא סוג פתח, מערכת פרופיל, סוג זכוכית, רוחב וגובה' : 'יש למלא סוג פתח, מערכת פרופיל, רוחב וגובה'
+      );
       return;
     }
     if (editingOpeningId) updateOpeningMutation.mutate(editingOpeningId);
@@ -369,7 +384,16 @@ export default function ProjectDetailPage() {
                 <label>סוג פתח</label>
                 <select
                   value={openingForm.opening_type_id}
-                  onChange={(e) => setOpeningForm({ ...openingForm, opening_type_id: e.target.value })}
+                  onChange={(e) => {
+                    const nextType = openingTypes.find((t) => t.id === e.target.value);
+                    setOpeningForm({
+                      ...openingForm,
+                      opening_type_id: e.target.value,
+                      // Switching to a no-glass type (a net, a shutter) drops whatever glass was
+                      // picked — it's hidden and shouldn't linger unsent in the form's state.
+                      glass_type_id: nextType && !nextType.has_glass ? '' : openingForm.glass_type_id,
+                    });
+                  }}
                 >
                   <option value="">בחר...</option>
                   {openingTypes.map((t) => (
@@ -393,20 +417,22 @@ export default function ProjectDetailPage() {
                   ))}
                 </select>
               </div>
-              <div className="field">
-                <label>סוג זכוכית</label>
-                <select
-                  value={openingForm.glass_type_id}
-                  onChange={(e) => setOpeningForm({ ...openingForm, glass_type_id: e.target.value })}
-                >
-                  <option value="">בחר...</option>
-                  {glassTypes.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name_he}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {needsGlass && (
+                <div className="field">
+                  <label>סוג זכוכית</label>
+                  <select
+                    value={openingForm.glass_type_id}
+                    onChange={(e) => setOpeningForm({ ...openingForm, glass_type_id: e.target.value })}
+                  >
+                    <option value="">בחר...</option>
+                    {glassTypes.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name_he}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="field">
                 <label>תיאור / מיקום (אופציונלי)</label>
                 <input
@@ -440,7 +466,32 @@ export default function ProjectDetailPage() {
                   onChange={(e) => setOpeningForm({ ...openingForm, quantity: e.target.value })}
                 />
               </div>
+              <div className="field">
+                <label>עבודה לפריט זה (%) — ריק = כמו בהצעה ({project.labor_pct_snapshot}%)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={openingForm.labor_pct_override}
+                  onChange={(e) => setOpeningForm({ ...openingForm, labor_pct_override: e.target.value })}
+                  placeholder="ברירת מחדל"
+                />
+              </div>
+              <div className="field">
+                <label>הנחה לפריט זה (%) — ריק = כמו בהצעה ({project.discount_pct}%)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={openingForm.discount_pct_override}
+                  onChange={(e) => setOpeningForm({ ...openingForm, discount_pct_override: e.target.value })}
+                  placeholder="ברירת מחדל"
+                />
+              </div>
             </div>
+            <p className="text-muted" style={{ fontSize: 13 }}>
+              משאירים ריק כדי שהפריט ישתמש באחוזי העבודה וההנחה הרגילים של ההצעה. ממלאים ערך רק
+              כשרוצים לחרוג ממנו לפריט הזה בלבד — למשל לתת הנחה על פריט ספציפי, או להוריד את
+              אחוז העבודה בפריט שדרש פחות עבודה בפועל.
+            </p>
             {openingError && <div className="error-text">{openingError}</div>}
             <button type="submit" className="btn btn-primary">
               שמור
@@ -476,10 +527,19 @@ export default function ProjectDetailPage() {
               {project.openings.map((o, idx) => (
                 <tr key={o.id}>
                   <td className="numeric">{idx + 1}</td>
-                  <td>{o.opening_type_name_snapshot}</td>
+                  <td>
+                    {o.opening_type_name_snapshot}
+                    {(o.labor_pct_override !== null || o.discount_pct_override !== null) && (
+                      <div className="text-muted" style={{ fontSize: 12 }}>
+                        {o.labor_pct_override !== null && `עבודה ${o.labor_pct_override}%`}
+                        {o.labor_pct_override !== null && o.discount_pct_override !== null && ' · '}
+                        {o.discount_pct_override !== null && `הנחה ${o.discount_pct_override}%`}
+                      </div>
+                    )}
+                  </td>
                   <td>{o.label || '—'}</td>
                   <td>{o.profile_system_series_code_snapshot || o.profile_system_name_snapshot}</td>
-                  <td>{o.glass_type_name_snapshot}</td>
+                  <td>{o.glass_type_name_snapshot ?? '—'}</td>
                   <td className="numeric">{o.height_mm}</td>
                   <td className="numeric">{o.width_mm}</td>
                   <td className="numeric">{o.quantity}</td>

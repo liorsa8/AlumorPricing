@@ -23,14 +23,13 @@ async function seedGlobalCatalogItem(collectionName: string, id: string, data: R
   await setDoc(doc(adminDb, collectionName, id), { is_active: 1, created_at: '', updated_at: '', ...data });
 }
 
-// The one profile-system fixture every test below needs — only `price_per_meter` ever varies,
-// via the optional override.
+// The one profile-system fixture every test below needs — only `manufacturer` ever varies, via
+// the optional override (a profile system is a pure display label; it has no price).
 function seedProfileSystem(id: string, overrides: Record<string, unknown> = {}) {
   return seedGlobalCatalogItem('catalog_profile_systems', id, {
     name_he: 'קליל 7000',
     series_code: '7000',
-    manufacturer: null,
-    price_per_meter: 50,
+    manufacturer: 'קליל',
     ...overrides,
   });
 }
@@ -65,8 +64,8 @@ describe('merged catalog: global items vs. business overrides', () => {
       seedGlobalCatalogItem('catalog_opening_types', 'ot1', {
         name_he: 'חלון',
         code: 'w',
-        profile_factor: 3,
-        glass_area_ratio: 0.8,
+        price_per_sqm: 100,
+        has_glass: true,
         sort_order: 0,
         accessories: [],
       }),
@@ -117,16 +116,16 @@ describe('merged catalog: global items vs. business overrides', () => {
       seedGlobalCatalogItem('catalog_opening_types', 'ot-second', {
         name_he: 'א',
         code: 'a',
-        profile_factor: 1,
-        glass_area_ratio: 1,
+        price_per_sqm: 50,
+        has_glass: true,
         sort_order: 2,
         accessories: [],
       }),
       seedGlobalCatalogItem('catalog_opening_types', 'ot-first', {
         name_he: 'ב',
         code: 'b',
-        profile_factor: 1,
-        glass_area_ratio: 1,
+        price_per_sqm: 50,
+        has_glass: true,
         sort_order: 1,
         accessories: [],
       }),
@@ -157,14 +156,14 @@ describe('merged catalog: global items vs. business overrides', () => {
   });
 
   it('deleting a forked item reverts it to the current global value instead of hiding it', async () => {
-    await seedProfileSystem('ps1');
-    await firestoreRequest('PUT', `/businesses/${businessId}/profile-systems/ps1`, { price_per_meter: 999 });
+    await seedProfileSystem('ps1'); // manufacturer: 'קליל'
+    await firestoreRequest('PUT', `/businesses/${businessId}/profile-systems/ps1`, { manufacturer: 'שונה' });
 
     const result = await firestoreRequest<{ deleted?: boolean }>('DELETE', `/businesses/${businessId}/profile-systems/ps1`);
     expect(result.deleted).toBe(true);
 
-    const list = await firestoreRequest<{ id: string; price_per_meter: number }[]>('GET', `/businesses/${businessId}/profile-systems`);
-    expect(list.find((r) => r.id === 'ps1')!.price_per_meter).toBe(50);
+    const list = await firestoreRequest<{ id: string; manufacturer: string }[]>('GET', `/businesses/${businessId}/profile-systems`);
+    expect(list.find((r) => r.id === 'ps1')!.manufacturer).toBe('קליל');
   });
 
   it('deleting a wholly business-owned item with no references hard-deletes it', async () => {

@@ -46,15 +46,14 @@ export async function setupBusinessWithCatalog(): Promise<TestCatalogIds> {
     firestoreRequest<{ id: string }>('POST', `/businesses/${businessId}/opening-types`, {
       name_he: 'סוג בדיקה',
       code: 'test',
-      profile_factor: 3,
-      glass_area_ratio: 0.8,
+      price_per_sqm: 110,
+      has_glass: true,
       sort_order: 0,
     }),
     firestoreRequest<{ id: string }>('POST', `/businesses/${businessId}/profile-systems`, {
       name_he: 'מערכת בדיקה',
       series_code: 'T',
       manufacturer: null,
-      price_per_meter: 50,
     }),
     firestoreRequest<{ id: string }>('POST', `/businesses/${businessId}/glass-types`, {
       name_he: 'זכוכית בדיקה',

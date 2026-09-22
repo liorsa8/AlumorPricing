@@ -1,11 +1,12 @@
 export type ProjectStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'archived';
 
+// A pure display label now — shown as "סדרה" on the printed quote. It no longer prices
+// anything; that lives entirely on OpeningType.price_per_sqm and GlassType.price_per_sqm.
 export interface ProfileSystem {
   id: string;
   name_he: string;
   series_code: string | null;
   manufacturer: string | null;
-  price_per_meter: number;
   is_active: number;
   // Present (true/false) only when read through a business's merged catalog view; absent when
   // read through the admin-only /catalog/:kind endpoint. True means this row is a business-
@@ -39,13 +40,26 @@ export interface OpeningTypeAccessoryLine {
   quantity: number;
 }
 
-export interface OpeningType {
-  id: string;
+// The plain, hand-typed columns of an opening type — shared between this client-facing type and
+// db/firestoreApi.ts's internal OpeningTypeRow (which extends this the same way, plus its own
+// storage-only fields). One declaration for the fields that actually price a quote line, so a
+// future pricing-field change is one edit instead of two hand-kept-in-sync interfaces — that
+// exact duplication is what made the profile_factor/glass_area_ratio -> price_per_sqm migration
+// touch more files than it needed to.
+export interface OpeningTypeFields {
   name_he: string;
   code: string;
-  profile_factor: number;
-  glass_area_ratio: number;
+  // ₪ per m² — set directly from real aluminum-pricing sites, not derived from any factor.
+  price_per_sqm: number;
+  // false = this opening type has no glass component (a net, a shutter, a monoblock box) — its
+  // quote lines skip picking a glass type and never get a glass surcharge.
+  has_glass: boolean;
   sort_order: number;
+  notes: string;
+}
+
+export interface OpeningType extends OpeningTypeFields {
+  id: string;
   is_active: number;
   accessories: OpeningTypeAccessoryLine[];
   forked_from_global?: boolean;
@@ -103,13 +117,15 @@ export interface Opening {
   project_id: string;
   opening_type_id: string;
   profile_system_id: string;
+  // '' when this opening type has no glass component (has_glass: false).
   glass_type_id: string;
   label: string;
   width_mm: number;
   height_mm: number;
   quantity: number;
-  profile_length_m: number;
-  glass_area_sqm: number;
+  // null = use the quote's own labor_pct/discount_pct. See ProjectDetailPage's item form.
+  labor_pct_override: number | null;
+  discount_pct_override: number | null;
   material_cost: number;
   accessories_cost: number;
   unit_subtotal: number;
@@ -117,7 +133,7 @@ export interface Opening {
   opening_type_name_snapshot: string;
   profile_system_name_snapshot: string;
   profile_system_series_code_snapshot: string | null;
-  glass_type_name_snapshot: string;
+  glass_type_name_snapshot: string | null;
   accessory_lines: OpeningAccessoryLine[];
 }
 

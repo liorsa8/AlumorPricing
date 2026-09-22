@@ -16,9 +16,10 @@ import {
 } from 'firebase/firestore';
 import { db as firestore, auth } from './firebaseConfig';
 import { mergeCatalog } from './catalogMerge';
-import { computeOpeningLine, computeProjectTotals, AccessoryInput, OpeningLineResult } from '../lib/quoteCalculator';
+import { computeOpeningLine, computeProjectTotals, AccessoryInput, OpeningLineResult, OpeningTotalsLine } from '../lib/quoteCalculator';
 import { DEFAULT_STANDARD_TERMS } from '../data/seedData';
 import { DEFAULT_COMPANY_LOGO } from '../data/companyLogo';
+import type { OpeningTypeFields } from '../api/types';
 
 // A tiny in-memory router — the exact same addRoute/localRequest pattern web/src/db/localApi.ts
 // used for the Dexie-backed version (see docs/ARCHITECTURE.md: this is a deliberate, reused
@@ -105,11 +106,9 @@ interface OpeningTypeKitLine {
   quantity: number;
 }
 
-interface OpeningTypeRow extends CatalogItemRow {
-  code: string;
-  profile_factor: number;
-  glass_area_ratio: number;
-  sort_order: number;
+// Shares its plain columns (price_per_sqm, has_glass, notes, ...) with the client-facing
+// OpeningType via OpeningTypeFields — see that type's comment for why.
+interface OpeningTypeRow extends CatalogItemRow, OpeningTypeFields {
   accessories: OpeningTypeKitLine[];
 }
 
@@ -156,25 +155,27 @@ interface OpeningEntry {
   id: number;
   opening_type_id: string;
   profile_system_id: string;
+  // '' when the opening type has no glass component (has_glass: false) — no glass was picked
+  // and none is priced in.
   glass_type_id: string;
   label: string;
   width_mm: number;
   height_mm: number;
   quantity: number;
-  profile_length_m: number;
-  glass_area_sqm: number;
+  // null = use the quote's own labor_pct/discount_pct (the normal case). Set to override just
+  // this line — e.g. a big job's labor cut on one item instead of discounting the whole quote.
+  labor_pct_override: number | null;
+  discount_pct_override: number | null;
   material_cost: number;
   accessories_cost: number;
   unit_subtotal: number;
   line_subtotal: number;
-  profile_factor_snapshot: number;
-  glass_area_ratio_snapshot: number;
-  profile_price_per_meter_snapshot: number;
+  opening_type_price_per_sqm_snapshot: number;
   glass_price_per_sqm_snapshot: number;
   opening_type_name_snapshot: string;
   profile_system_name_snapshot: string;
   profile_system_series_code_snapshot: string | null;
-  glass_type_name_snapshot: string;
+  glass_type_name_snapshot: string | null;
   created_at: string;
   updated_at: string;
   accessory_lines: AccessoryLineEntry[];
@@ -403,8 +404,32 @@ addRoute('DELETE', '/businesses/:businessId/customers/:id', async (p) => {
 // this business's own overrides; writes always go to the business's override collection,
 // never the global one — "unchanged for everyone else" holds by construction).
 
+// Copies a fixed list of plain fields from a request body into a Firestore doc/patch: a field
+// the body omits falls back to whatever the document already had (on update), then to its
+// entry in `defaults` (also covers a real doc that predates the field entirely — e.g. an
+// opening type saved before `notes` existed, where `existing.notes` is itself undefined), then
+// to `null`. Shared by every catalog kind's plain-field CRUD, including opening-types' scalar
+// fields — which used to hand-copy this same defaulting logic 4 times (global/business ×
+// create/update) instead of sharing it with the other catalogs.
+function buildFieldsFromBody(
+  fields: string[],
+  body: any,
+  existing?: Record<string, unknown>,
+  defaults: Record<string, unknown> = {}
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const f of fields) {
+    if (body[f] !== undefined) result[f] = body[f];
+    else if (existing && existing[f] !== undefined) result[f] = existing[f];
+    else result[f] = defaults[f] ?? null;
+  }
+  return result;
+}
+
 const SIMPLE_CATALOG_CONFIGS: { kind: SimpleCatalogKind; fields: string[] }[] = [
-  { kind: 'profile-systems', fields: ['name_he', 'series_code', 'manufacturer', 'price_per_meter'] },
+  // No price here anymore — a profile system is a pure display label (shown as "סדרה" on the
+  // printed quote); price now lives entirely on the opening type + glass type.
+  { kind: 'profile-systems', fields: ['name_he', 'series_code', 'manufacturer'] },
   { kind: 'glass-types', fields: ['name_he', 'thickness_mm', 'price_per_sqm'] },
   { kind: 'accessories', fields: ['name_he', 'unit', 'price_per_unit'] },
 ];
@@ -417,8 +442,7 @@ function registerGlobalSimpleCatalogRoutes(kind: SimpleCatalogKind, fields: stri
   addRoute('POST', base, async (_p, _q, body: any) => {
     const now = nowIso();
     const ref = doc(globalCol(kind));
-    const data: any = { is_active: 1, created_at: now, updated_at: now };
-    for (const f of fields) data[f] = body[f] ?? null;
+    const data: any = { is_active: 1, created_at: now, updated_at: now, ...buildFieldsFromBody(fields, body) };
     await setDoc(ref, data);
     return { id: ref.id, ...data };
   });
@@ -427,10 +451,11 @@ function registerGlobalSimpleCatalogRoutes(kind: SimpleCatalogKind, fields: stri
     const ref = doc(globalCol(kind), p.id);
     const existing = (await getDoc(ref)).data() as CatalogItemRow | undefined;
     if (!existing) throw new ApiError('not_found');
-    const patch: any = {};
-    for (const f of fields) patch[f] = body[f] !== undefined ? body[f] : existing[f];
-    patch.is_active = body.is_active !== undefined ? (body.is_active ? 1 : 0) : existing.is_active;
-    patch.updated_at = nowIso();
+    const patch: any = {
+      ...buildFieldsFromBody(fields, body, existing),
+      is_active: body.is_active !== undefined ? (body.is_active ? 1 : 0) : existing.is_active,
+      updated_at: nowIso(),
+    };
     await updateDoc(ref, patch);
     const snap = await getDoc(ref);
     return { id: snap.id, ...snap.data() };
@@ -540,8 +565,13 @@ function registerBusinessSimpleCatalogRoutes(
   addRoute('POST', base, async (p, _q, body: any) => {
     const now = nowIso();
     const ref = doc(overridesCol(p.businessId, kind));
-    const data: any = { owner_uid: currentUid(), is_active: 1, created_at: now, updated_at: now };
-    for (const f of fields) data[f] = body[f] ?? null;
+    const data: any = {
+      owner_uid: currentUid(),
+      is_active: 1,
+      created_at: now,
+      updated_at: now,
+      ...buildFieldsFromBody(fields, body),
+    };
     await setDoc(ref, data);
     return { id: ref.id, ...data };
   });
@@ -549,9 +579,13 @@ function registerBusinessSimpleCatalogRoutes(
   addRoute('PUT', `${base}/:id`, async (p, _q, body: any) => {
     const existing = await resolveMergedItem<CatalogItemRow>(p.businessId, kind, p.id);
     if (!existing) throw new ApiError('not_found');
-    const patch: any = { owner_uid: currentUid(), created_at: existing.created_at, updated_at: nowIso() };
-    for (const f of fields) patch[f] = body[f] !== undefined ? body[f] : existing[f];
-    patch.is_active = body.is_active !== undefined ? (body.is_active ? 1 : 0) : existing.is_active;
+    const patch: any = {
+      owner_uid: currentUid(),
+      created_at: existing.created_at,
+      updated_at: nowIso(),
+      ...buildFieldsFromBody(fields, body, existing),
+      is_active: body.is_active !== undefined ? (body.is_active ? 1 : 0) : existing.is_active,
+    };
     await setDoc(doc(overridesCol(p.businessId, kind), p.id), patch);
     return { id: p.id, ...patch };
   });
@@ -610,15 +644,23 @@ addRoute('GET', '/catalog/opening-types', async () => {
   return rows.map((r) => ({ ...r, accessories: resolveKit(r.accessories, byId) }));
 });
 
+// Opening-types isn't on the generic SIMPLE_CATALOG_CONFIGS mechanism (it has the accessory
+// kit, and its own defaults for has_glass/sort_order/notes), but its plain scalar fields share
+// the exact same copy-semantics — same buildFieldsFromBody helper (including its defaults arg,
+// which covers real opening types that predate a field entirely, e.g. no `notes` key at all in
+// Firestore) — so a future plain field only needs adding here, not hand-copying into 4 route
+// bodies again.
+const OPENING_TYPE_PLAIN_FIELDS = ['name_he', 'code', 'price_per_sqm', 'has_glass', 'sort_order', 'notes'];
+const OPENING_TYPE_DEFAULTS = { has_glass: true, sort_order: 0, notes: '' };
+
 addRoute('POST', '/catalog/opening-types', async (_p, _q, body: any) => {
   const now = nowIso();
   const ref = doc(globalCol('opening-types'));
   const data: Omit<OpeningTypeRow, 'id'> = {
-    name_he: body.name_he,
-    code: body.code,
-    profile_factor: body.profile_factor,
-    glass_area_ratio: body.glass_area_ratio,
-    sort_order: body.sort_order ?? 0,
+    ...(buildFieldsFromBody(OPENING_TYPE_PLAIN_FIELDS, body, undefined, OPENING_TYPE_DEFAULTS) as Omit<
+      OpeningTypeRow,
+      'id' | 'is_active' | 'accessories' | 'created_at' | 'updated_at'
+    >),
     is_active: 1,
     accessories: [],
     created_at: now,
@@ -633,11 +675,7 @@ addRoute('PUT', '/catalog/opening-types/:id', async (p, _q, body: any) => {
   const existing = (await getDoc(ref)).data() as OpeningTypeRow | undefined;
   if (!existing) throw new ApiError('not_found');
   await updateDoc(ref, {
-    name_he: body.name_he ?? existing.name_he,
-    code: body.code ?? existing.code,
-    profile_factor: body.profile_factor ?? existing.profile_factor,
-    glass_area_ratio: body.glass_area_ratio ?? existing.glass_area_ratio,
-    sort_order: body.sort_order ?? existing.sort_order,
+    ...buildFieldsFromBody(OPENING_TYPE_PLAIN_FIELDS, body, existing, OPENING_TYPE_DEFAULTS),
     is_active: body.is_active !== undefined ? (body.is_active ? 1 : 0) : existing.is_active,
     updated_at: nowIso(),
   });
@@ -698,11 +736,7 @@ addRoute('POST', '/businesses/:businessId/opening-types', async (p, _q, body: an
   const ref = doc(overridesCol(p.businessId, 'opening-types'));
   const data = {
     owner_uid: currentUid(),
-    name_he: body.name_he,
-    code: body.code,
-    profile_factor: body.profile_factor,
-    glass_area_ratio: body.glass_area_ratio,
-    sort_order: body.sort_order ?? 0,
+    ...buildFieldsFromBody(OPENING_TYPE_PLAIN_FIELDS, body, undefined, OPENING_TYPE_DEFAULTS),
     is_active: 1,
     accessories: [] as OpeningTypeKitLine[],
     created_at: now,
@@ -717,11 +751,7 @@ addRoute('PUT', '/businesses/:businessId/opening-types/:id', async (p, _q, body:
   if (!existing) throw new ApiError('not_found');
   const patch = {
     owner_uid: currentUid(),
-    name_he: body.name_he ?? existing.name_he,
-    code: body.code ?? existing.code,
-    profile_factor: body.profile_factor ?? existing.profile_factor,
-    glass_area_ratio: body.glass_area_ratio ?? existing.glass_area_ratio,
-    sort_order: body.sort_order ?? existing.sort_order,
+    ...buildFieldsFromBody(OPENING_TYPE_PLAIN_FIELDS, body, existing, OPENING_TYPE_DEFAULTS),
     is_active: body.is_active !== undefined ? (body.is_active ? 1 : 0) : existing.is_active,
     accessories: existing.accessories,
     created_at: existing.created_at,
@@ -762,7 +792,9 @@ interface ResolvedOpeningRefs {
   type: OpeningTypeRow;
   kit: AccessoryInput[];
   profileSystem: CatalogItemRow;
-  glassType: CatalogItemRow;
+  // null when the opening type has no glass component (type.has_glass === false) — no glass
+  // type is required or priced in for such a line.
+  glassType: CatalogItemRow | null;
 }
 
 async function resolveOpeningRefs(
@@ -771,14 +803,23 @@ async function resolveOpeningRefs(
   profileSystemId: string,
   glassTypeId: string
 ): Promise<ResolvedOpeningRefs | null> {
-  // Point lookups for the 3 referenced ids (not a full scan of each catalog) — this runs on
-  // every opening add/edit/recalculate, the hottest write path while building a quote.
-  const [type, profileSystem, glassType] = await Promise.all([
+  // Point lookups for the referenced ids (not a full scan of each catalog) — this runs on every
+  // opening add/edit/recalculate, the hottest write path while building a quote. The glass type
+  // is fetched here too, speculatively, even though it's only needed once `type` turns out to
+  // have has_glass: true — one wasted read in the (uncommon) mismatched-selection case, versus
+  // an extra full round trip on this hot path in the common case if fetched only afterward.
+  const [type, profileSystem, speculativeGlassType] = await Promise.all([
     resolveMergedItem<OpeningTypeRow>(businessId, 'opening-types', openingTypeId),
     resolveMergedItem<CatalogItemRow>(businessId, 'profile-systems', profileSystemId),
-    resolveMergedItem<CatalogItemRow>(businessId, 'glass-types', glassTypeId),
+    glassTypeId ? resolveMergedItem<CatalogItemRow>(businessId, 'glass-types', glassTypeId) : Promise.resolve(null),
   ]);
-  if (!type || !profileSystem || !glassType) return null;
+  if (!type || !profileSystem) return null;
+
+  let glassType: CatalogItemRow | null = null;
+  if (type.has_glass) {
+    if (!speculativeGlassType) return null;
+    glassType = speculativeGlassType;
+  }
 
   // Same for the kit's own accessories — a handful of point lookups, not the whole collection.
   const kitRefs = type.accessories ?? [];
@@ -796,8 +837,7 @@ function priceOpening(refs: ResolvedOpeningRefs, widthMm: number, heightMm: numb
     widthMm,
     heightMm,
     quantity,
-    { profile_factor: refs.type.profile_factor, glass_area_ratio: refs.type.glass_area_ratio },
-    { profile_price_per_meter: refs.profileSystem.price_per_meter as number, glass_price_per_sqm: refs.glassType.price_per_sqm as number },
+    { opening_type_price_per_sqm: refs.type.price_per_sqm, glass_price_per_sqm: (refs.glassType?.price_per_sqm as number) ?? 0 },
     refs.kit
   );
 }
@@ -810,26 +850,34 @@ interface OpeningOwnColumns {
   width_mm: number;
   height_mm: number;
   quantity: number;
+  labor_pct_override: number | null;
+  discount_pct_override: number | null;
+}
+
+// '' / undefined / not-a-number all mean "no override" — never write `undefined` to Firestore.
+function toOptionalPct(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 function buildOpeningEntry(id: number, own: OpeningOwnColumns, computed: OpeningLineResult, refs: ResolvedOpeningRefs, createdAt: string): OpeningEntry {
   return {
     id,
     ...own,
-    profile_length_m: computed.profile_length_m,
-    glass_area_sqm: computed.glass_area_sqm,
+    // Normalize away any glass_type_id the client sent for a type that turns out to have no
+    // glass component — refs.glassType is only ever set when it's actually priced in.
+    glass_type_id: refs.glassType ? own.glass_type_id : '',
     material_cost: computed.material_cost,
     accessories_cost: computed.accessories_cost,
     unit_subtotal: computed.unit_subtotal,
     line_subtotal: computed.line_subtotal,
-    profile_factor_snapshot: refs.type.profile_factor,
-    glass_area_ratio_snapshot: refs.type.glass_area_ratio,
-    profile_price_per_meter_snapshot: refs.profileSystem.price_per_meter as number,
-    glass_price_per_sqm_snapshot: refs.glassType.price_per_sqm as number,
+    opening_type_price_per_sqm_snapshot: refs.type.price_per_sqm,
+    glass_price_per_sqm_snapshot: (refs.glassType?.price_per_sqm as number) ?? 0,
     opening_type_name_snapshot: refs.type.name_he,
     profile_system_name_snapshot: refs.profileSystem.name_he,
     profile_system_series_code_snapshot: (refs.profileSystem.series_code as string | undefined) ?? null,
-    glass_type_name_snapshot: refs.glassType.name_he,
+    glass_type_name_snapshot: refs.glassType ? refs.glassType.name_he : null,
     created_at: createdAt,
     updated_at: nowIso(),
     accessory_lines: computed.accessory_lines.map((line, i) => ({
@@ -843,19 +891,25 @@ function buildOpeningEntry(id: number, own: OpeningOwnColumns, computed: Opening
   };
 }
 
+// Each opening's own labor%/discount% for totals purposes: its override if it has one, else
+// the default passed in — the business's current rate for a repriceProject call, or the
+// project's own (possibly just-edited) rate for the header PUT route below. Shared so the two
+// call sites can't drift on what "this line's effective %" means.
+function toTotalsLines(openings: OpeningEntry[], defaultLaborPct: number, defaultDiscountPct: number): OpeningTotalsLine[] {
+  return openings.map((o) => ({
+    line_subtotal: o.line_subtotal,
+    labor_pct: o.labor_pct_override ?? defaultLaborPct,
+    discount_pct: o.discount_pct_override ?? defaultDiscountPct,
+  }));
+}
+
 // Shared by recalculate and every opening create/update/delete: recomputes totals from the
 // given openings against the business's CURRENT pricing settings (always current — these
 // routes only ever run while status === 'draft', so re-pulling labor/installation/vat live on
 // every change is exactly the intended behavior, not a cache-staleness bug) and returns the
 // patch fields those four call sites all used to build by hand.
 function repriceProject(openings: OpeningEntry[], biz: BusinessRow, discountPct: number) {
-  const totals = computeProjectTotals(
-    openings.reduce((sum, o) => sum + o.line_subtotal, 0),
-    biz.labor_pct,
-    biz.installation_pct,
-    discountPct,
-    biz.vat_pct
-  );
+  const totals = computeProjectTotals(toTotalsLines(openings, biz.labor_pct, discountPct), biz.installation_pct, biz.vat_pct);
   return {
     labor_pct_snapshot: biz.labor_pct,
     installation_pct_snapshot: biz.installation_pct,
@@ -1004,13 +1058,7 @@ addRoute('PUT', '/businesses/:businessId/projects/:id', async (p, _q, body: any)
       installationPct = biz.installation_pct;
       vatPct = biz.vat_pct;
     }
-    const totals = computeProjectTotals(
-      (existing.openings ?? []).reduce((sum, o) => sum + o.line_subtotal, 0),
-      laborPct,
-      installationPct,
-      discountPct,
-      vatPct
-    );
+    const totals = computeProjectTotals(toTotalsLines(existing.openings ?? [], laborPct, discountPct), installationPct, vatPct);
 
     tx.update(ref, {
       customer_id: body.customer_id !== undefined ? body.customer_id : existing.customer_id,
@@ -1051,6 +1099,8 @@ async function repriceOpening(businessId: string, o: OpeningEntry): Promise<Open
       width_mm: o.width_mm,
       height_mm: o.height_mm,
       quantity: o.quantity,
+      labor_pct_override: o.labor_pct_override,
+      discount_pct_override: o.discount_pct_override,
     },
     computed,
     refs,
@@ -1114,7 +1164,17 @@ addRoute('POST', '/businesses/:businessId/projects/:projectId/openings', async (
     const openingId = project.next_opening_id ?? 1;
     newOpening = buildOpeningEntry(
       openingId,
-      { opening_type_id, profile_system_id, glass_type_id, label: label ?? '', width_mm, height_mm, quantity: qty },
+      {
+        opening_type_id,
+        profile_system_id,
+        glass_type_id,
+        label: label ?? '',
+        width_mm,
+        height_mm,
+        quantity: qty,
+        labor_pct_override: toOptionalPct(body.labor_pct_override),
+        discount_pct_override: toOptionalPct(body.discount_pct_override),
+      },
       computed,
       refs,
       now
@@ -1169,6 +1229,14 @@ addRoute('PUT', '/businesses/:businessId/projects/:projectId/openings/:id', asyn
       width_mm: body.width_mm ?? existingOpening.width_mm,
       height_mm: body.height_mm ?? existingOpening.height_mm,
       quantity: body.quantity && body.quantity > 0 ? body.quantity : existingOpening.quantity,
+      // Explicit null clears an override back to "use the quote's own %"; undefined (the field
+      // just wasn't in this PUT's body) leaves whatever was already there untouched.
+      labor_pct_override:
+        body.labor_pct_override !== undefined ? toOptionalPct(body.labor_pct_override) : existingOpening.labor_pct_override,
+      discount_pct_override:
+        body.discount_pct_override !== undefined
+          ? toOptionalPct(body.discount_pct_override)
+          : existingOpening.discount_pct_override,
     };
     // Same guard the create route applies — without it, editing width_mm/height_mm to 0 (falsy,
     // so it survives the ?? above) would silently zero out this opening's line_subtotal and drag

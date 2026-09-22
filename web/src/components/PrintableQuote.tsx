@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import { ProjectDetail, Business } from '../api/types';
 import { formatCurrency, formatDate } from '../lib/format';
+import { lineMarkupFactor } from '../lib/quoteCalculator';
 import '../styles/print.css';
 
 interface PrintableQuoteProps {
@@ -21,12 +22,17 @@ const PrintableQuote = forwardRef<HTMLDivElement, PrintableQuoteProps>(function 
   const taxIdLine = settings?.company_tax_id ? `ח.פ / עוסק מורשה: ${settings.company_tax_id}` : '';
   const termsLines = settings?.standard_terms ? settings.standard_terms.split('\n').filter(Boolean) : [];
 
-  // Line prices shown on the quote must already include labor + installation (and reflect
-  // any discount), so they sum to the "לפני מע"מ" total below — a raw material-only price
-  // per line would not reconcile with the quote's bottom line.
-  const markupFactor = 1 + (project.labor_pct_snapshot + project.installation_pct_snapshot) / 100;
-  const discountFactor = 1 - project.discount_pct / 100;
-  const lineDisplayFactor = markupFactor * discountFactor;
+  // Line prices shown on the quote must already include labor + installation (and reflect any
+  // discount), so they sum to the "לפני מע"מ" total below — a raw material-only price per line
+  // would not reconcile with the quote's bottom line. An opening can override the quote's own
+  // labor%/discount% for just that line (see ProjectDetailPage's item form) — installation
+  // stays project-wide for every line, nobody overrides that per item. The actual arithmetic is
+  // shared with computeProjectTotals via lineMarkupFactor, so the two can't drift apart.
+  function lineDisplayFactor(o: (typeof project.openings)[number]): number {
+    const laborPct = o.labor_pct_override ?? project.labor_pct_snapshot;
+    const discountPct = o.discount_pct_override ?? project.discount_pct;
+    return lineMarkupFactor(laborPct, project.installation_pct_snapshot, discountPct);
+  }
 
   return (
     <div className="print-page" ref={ref}>
@@ -69,22 +75,25 @@ const PrintableQuote = forwardRef<HTMLDivElement, PrintableQuoteProps>(function 
             </tr>
           </thead>
           <tbody>
-            {project.openings.map((o, idx) => (
-              <tr key={o.id}>
-                <td>{idx + 1}</td>
-                <td>
-                  {o.opening_type_name_snapshot}
-                  {o.label ? ` – ${o.label}` : ''}
-                </td>
-                <td>{o.profile_system_series_code_snapshot || o.profile_system_name_snapshot}</td>
-                <td>{o.glass_type_name_snapshot}</td>
-                <td>{o.height_mm}</td>
-                <td>{o.width_mm}</td>
-                <td>{o.quantity}</td>
-                <td>{formatCurrency(o.unit_subtotal * lineDisplayFactor)}</td>
-                <td>{formatCurrency(o.line_subtotal * lineDisplayFactor)}</td>
-              </tr>
-            ))}
+            {project.openings.map((o, idx) => {
+              const factor = lineDisplayFactor(o);
+              return (
+                <tr key={o.id}>
+                  <td>{idx + 1}</td>
+                  <td>
+                    {o.opening_type_name_snapshot}
+                    {o.label ? ` – ${o.label}` : ''}
+                  </td>
+                  <td>{o.profile_system_series_code_snapshot || o.profile_system_name_snapshot}</td>
+                  <td>{o.glass_type_name_snapshot ?? '—'}</td>
+                  <td>{o.height_mm}</td>
+                  <td>{o.width_mm}</td>
+                  <td>{o.quantity}</td>
+                  <td>{formatCurrency(o.unit_subtotal * factor)}</td>
+                  <td>{formatCurrency(o.line_subtotal * factor)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

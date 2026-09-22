@@ -8,7 +8,6 @@
         "name_he": "קליל 7000 (הזזה קלאסי) 2 כנפיים",
         "series_code": "7000",
         "manufacturer": "קליל",
-        "price_per_meter": 48,
         "is_active": 1,
         "created_at": "2026-09-13T14:03:33.418Z",
         "updated_at": "2026-09-13T14:24:34.214Z",
@@ -18,7 +17,6 @@
         "name_he": "קליל 7300 בלגי (הזזה) 2 כנפיים",
         "series_code": "7300",
         "manufacturer": "קליל",
-        "price_per_meter": 68,
         "is_active": 1,
         "created_at": "2026-09-13T14:03:33.418Z",
         "updated_at": "2026-09-13T14:24:52.703Z",
@@ -28,7 +26,6 @@
         "name_he": "קליל 9000 הזזה 2 כנפיים",
         "series_code": "9000",
         "manufacturer": "קליל",
-        "price_per_meter": 72,
         "is_active": 1,
         "created_at": "2026-09-13T14:03:33.418Z",
         "updated_at": "2026-09-13T14:25:30.963Z",
@@ -38,7 +35,6 @@
         "name_he": "קליל 4100 בלגי ארט (ציר)",
         "series_code": "4100",
         "manufacturer": "קליל",
-        "price_per_meter": 75,
         "is_active": 1,
         "created_at": "2026-09-13T14:03:33.418Z",
         "updated_at": "2026-09-13T14:03:33.418Z",
@@ -48,7 +44,6 @@
         "name_he": "קליל 4500 קלאסי (ציר)",
         "series_code": "4500",
         "manufacturer": "קליל",
-        "price_per_meter": 250,
         "is_active": 1,
         "created_at": "2026-09-13T14:03:33.418Z",
         "updated_at": "2026-09-13T16:15:25.548Z",
@@ -58,7 +53,6 @@
         "name_he": "חלון פתיחה",
         "series_code": "4400",
         "manufacturer": "קליל",
-        "price_per_meter": 95,
         "is_active": 1,
         "created_at": "2026-09-13T14:03:33.418Z",
         "updated_at": "2026-09-13T14:13:37.314Z",
@@ -71,7 +65,6 @@
         "name_he": "הזזה 7000 3 כנפיים",
         "series_code": "7000",
         "manufacturer": "קליל",
-        "price_per_meter": 300,
         "id": 8
       },
       {
@@ -81,7 +74,6 @@
         "name_he": "ארגז תריס גלילה חיצוני",
         "series_code": "תריס גלילה שלב אור אלומיניום",
         "manufacturer": null,
-        "price_per_meter": 850,
         "id": 9
       },
       {
@@ -91,7 +83,6 @@
         "name_he": "תריס הזזה",
         "series_code": "תריס בורג",
         "manufacturer": null,
-        "price_per_meter": 650,
         "id": 10
       },
       {
@@ -101,7 +92,6 @@
         "name_he": "רשת",
         "series_code": "רשת קליל",
         "manufacturer": null,
-        "price_per_meter": 200,
         "id": 11
       },
       {
@@ -111,7 +101,6 @@
         "name_he": "רשת",
         "series_code": "רשת בורג 7000",
         "manufacturer": null,
-        "price_per_meter": 500,
         "id": 12
       },
       {
@@ -121,7 +110,6 @@
         "name_he": "רשת",
         "series_code": "9000",
         "manufacturer": null,
-        "price_per_meter": 600,
         "id": 13
       },
       {
@@ -131,7 +119,6 @@
         "name_he": "רשת",
         "series_code": "רשת נשלפת",
         "manufacturer": null,
-        "price_per_meter": 250,
         "id": 14
       },
       {
@@ -141,7 +128,6 @@
         "name_he": "הזזה 6 כנפיים 7000",
         "series_code": "7000",
         "manufacturer": null,
-        "price_per_meter": 500,
         "id": 15
       },
       {
@@ -151,7 +137,6 @@
         "name_he": "מונובלוק+תריס חשמלי שלב אור מנוע רולסאן",
         "series_code": "7000",
         "manufacturer": null,
-        "price_per_meter": 25,
         "id": 16
       },
       {
@@ -161,7 +146,6 @@
         "name_he": "חלון 1700 2כנפיים +1רשת",
         "series_code": "1700",
         "manufacturer": null,
-        "price_per_meter": 1,
         "id": 17
       }
     ],
@@ -353,156 +337,157 @@
       {
         "name_he": "חלון הזזה",
         "code": "sliding_window",
-        "profile_factor": 3,
-        "glass_area_ratio": 0.82,
         "sort_order": 1,
         "is_active": 1,
         "created_at": "2026-09-13T14:03:33.418Z",
         "updated_at": "2026-09-13T14:03:33.418Z",
-        "id": 1
+        "id": 1,
+        "price_per_sqm": 126,
+        "has_glass": true
       },
       {
         "name_he": "חלון ציר",
         "code": "casement_window",
-        "profile_factor": 3.6,
-        "glass_area_ratio": 0.78,
         "sort_order": 2,
         "is_active": 1,
         "created_at": "2026-09-13T14:03:33.418Z",
         "updated_at": "2026-09-13T14:03:33.418Z",
-        "id": 2
+        "id": 2,
+        "price_per_sqm": 248,
+        "has_glass": true
       },
       {
         "name_he": "דלת כניסה",
         "code": "entry_door",
-        "profile_factor": 4.2,
-        "glass_area_ratio": 0.35,
         "sort_order": 3,
         "is_active": 1,
         "created_at": "2026-09-13T14:03:33.418Z",
         "updated_at": "2026-09-13T14:03:33.418Z",
-        "id": 3
+        "id": 3,
+        "price_per_sqm": 985,
+        "has_glass": true
       },
       {
         "name_he": "דלת הזזה",
         "code": "sliding_door",
-        "profile_factor": 3.4,
-        "glass_area_ratio": 0.75,
         "sort_order": 4,
         "is_active": 1,
         "created_at": "2026-09-13T14:03:33.418Z",
         "updated_at": "2026-09-13T14:03:33.418Z",
-        "id": 4
+        "id": 4,
+        "price_per_sqm": 206.2,
+        "has_glass": true
       },
       {
         "name_he": "חלון קבוע",
         "code": "fixed_window",
-        "profile_factor": 2.2,
-        "glass_area_ratio": 0.9,
         "sort_order": 5,
         "is_active": 1,
         "created_at": "2026-09-13T14:03:33.418Z",
         "updated_at": "2026-09-13T14:03:33.418Z",
-        "id": 5
+        "id": 5,
+        "price_per_sqm": 95.6,
+        "has_glass": true
       },
       {
         "name_he": "תריס גלילה",
         "code": "תריס",
-        "profile_factor": 1,
-        "glass_area_ratio": 0,
         "sort_order": 0,
         "is_active": 1,
         "created_at": "2026-09-13T14:35:00.779Z",
         "updated_at": "2026-09-13T15:35:31.234Z",
-        "id": 6
+        "id": 6,
+        "price_per_sqm": 850,
+        "has_glass": false
       },
       {
         "name_he": "תריס הזזה 2 כנפיים שלב 8 פלסטיק",
         "code": "תריס",
-        "profile_factor": 1,
-        "glass_area_ratio": 0,
         "sort_order": 0,
         "is_active": 1,
         "created_at": "2026-09-13T15:22:10.619Z",
         "updated_at": "2026-09-13T15:26:57.880Z",
-        "id": 8
+        "id": 8,
+        "price_per_sqm": 650,
+        "has_glass": false
       },
       {
         "name_he": "רשת הזזה קליל",
         "code": "רשת",
-        "profile_factor": 1,
-        "glass_area_ratio": 0,
         "sort_order": 0,
         "is_active": 1,
         "created_at": "2026-09-13T15:48:04.217Z",
         "updated_at": "2026-09-13T15:50:37.918Z",
-        "id": 9
+        "id": 9,
+        "price_per_sqm": 200,
+        "has_glass": false
       },
       {
         "name_he": "רשת הזזה בורג 7000",
         "code": "רשת",
-        "profile_factor": 1,
-        "glass_area_ratio": 0,
         "sort_order": 0,
         "is_active": 1,
         "created_at": "2026-09-13T15:54:27.596Z",
         "updated_at": "2026-09-13T15:54:27.596Z",
-        "id": 10
+        "id": 10,
+        "price_per_sqm": 500,
+        "has_glass": false
       },
       {
         "name_he": "רשת הזזה 9000",
         "code": "רשת",
-        "profile_factor": 1,
-        "glass_area_ratio": 0,
         "sort_order": 0,
         "is_active": 1,
         "created_at": "2026-09-13T16:00:15.375Z",
         "updated_at": "2026-09-13T16:00:15.375Z",
-        "id": 11
+        "id": 11,
+        "price_per_sqm": 600,
+        "has_glass": false
       },
       {
         "name_he": "רשת נשלפת",
         "code": "רשת",
-        "profile_factor": 1,
-        "glass_area_ratio": 0,
         "sort_order": 0,
         "is_active": 1,
         "created_at": "2026-09-13T16:16:26.699Z",
         "updated_at": "2026-09-13T16:16:26.699Z",
-        "id": 12
+        "id": 12,
+        "price_per_sqm": 250,
+        "has_glass": false
       },
       {
         "name_he": "הזזה 6 כנפיים",
         "code": "7000",
-        "profile_factor": 1,
-        "glass_area_ratio": 0.82,
         "sort_order": 0,
         "is_active": 1,
         "created_at": "2026-09-13T16:56:48.176Z",
         "updated_at": "2026-09-13T16:56:48.176Z",
-        "id": 13
+        "id": 13,
+        "price_per_sqm": 482,
+        "has_glass": true
       },
       {
         "name_he": "חלון מונובלוק 7000",
         "code": "7000",
-        "profile_factor": 50,
-        "glass_area_ratio": 1,
         "sort_order": 0,
         "is_active": 1,
         "created_at": "2026-09-14T12:29:58.151Z",
         "updated_at": "2026-09-14T12:43:37.306Z",
-        "id": 14
+        "id": 14,
+        "price_per_sqm": 1250,
+        "has_glass": true
       },
       {
         "name_he": "חלון 1700 2 כנפיים עם רשת",
         "code": "1700",
-        "profile_factor": 1200,
-        "glass_area_ratio": 0.9,
         "sort_order": 0,
         "is_active": 1,
         "created_at": "2026-09-15T15:26:56.634Z",
-        "updated_at": "2026-09-15T15:52:48.044Z",
-        "id": 15
+        "updated_at": "2026-09-22T15:04:44.581Z",
+        "id": 15,
+        "notes": "ערך משוער, כמו שאר סוגי החלונות (חלון הזזה=3, חלון ציר=3.6) בתוספת קטנה בגלל הרשת. לכוונן לפי הצעת מחיר לדוגמה.",
+        "price_per_sqm": 158,
+        "has_glass": true
       }
     ],
     "opening_type_accessories": [

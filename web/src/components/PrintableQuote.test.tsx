@@ -72,4 +72,21 @@ describe('PrintableQuote', () => {
       expect(totals.textContent).toContain(formatCurrency(amount));
     }
   });
+
+  // A per-item labor%/discount% override (set in ProjectDetailPage's item form) must change
+  // only that opening's displayed price on the printed quote — every other line keeps using the
+  // quote's own labor_pct_snapshot/discount_pct, exactly as before this feature existed.
+  it("shows a discounted line at its own price, without changing a sibling line without an override", () => {
+    const withOverride = {
+      ...project,
+      openings: [{ ...project.openings[0], discount_pct_override: 50 }, project.openings[1]],
+    } as unknown as ProjectDetail;
+    const { container } = render(<PrintableQuote project={withOverride} settings={undefined} />);
+
+    const rows = container.querySelectorAll('.print-table-wrap tbody tr');
+    // Line 1: 100% labor + 10% installation, then its own 50% discount instead of the quote's 0%.
+    expect(rows[0].textContent).toContain(formatCurrency(479.28 * 2.1 * 0.5));
+    // Line 2 is untouched: same 2.1 factor as before, no discount.
+    expect(rows[1].textContent).toContain(formatCurrency(600 * 2.1));
+  });
 });
