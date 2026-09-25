@@ -342,7 +342,195 @@ tbody tr:hover {
   font-variant-numeric: tabular-nums;
 }
 
+.workspace-picker {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 24px 16px;
+  background: radial-gradient(circle at 50% 0%, #eef2ff 0%, var(--color-bg) 55%);
+}
+
+.workspace-picker-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  align-self: center;
+}
+
+.workspace-picker-account-email {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+}
+
+.user-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.workspace-picker-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06), 0 12px 32px rgba(16, 24, 40, 0.08);
+  padding: 36px 28px 28px;
+  text-align: center;
+}
+
+.workspace-picker-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.workspace-picker-title {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+.workspace-picker-subtitle {
+  margin: 4px 0 24px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.workspace-picker-loading,
+.workspace-picker-empty {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  padding: 16px 0;
+}
+
+.workspace-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: start;
+}
+
+.workspace-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: start;
+  font-family: inherit;
+  transition: background-color 0.12s ease;
+}
+
+.workspace-row:hover {
+  background: var(--color-bg);
+}
+
+.workspace-row-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: #eef2ff;
+  color: var(--color-primary);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.workspace-row-tile-add {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  border: 1px dashed var(--color-border);
+}
+
+.workspace-row-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-row-add .workspace-row-name {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.workspace-row-arrow {
+  color: var(--color-text-muted);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.workspace-create-form {
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.workspace-create-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.workspace-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 @media (max-width: 720px) {
+  .workspace-picker-account-email {
+    display: none;
+  }
+
   .app-shell {
     flex-direction: column;
     min-height: auto;
