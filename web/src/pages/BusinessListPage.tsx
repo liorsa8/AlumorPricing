@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Business } from '../api/types';
@@ -13,6 +13,7 @@ function initials(name: string | null | undefined, email: string | null | undefi
 export default function BusinessListPage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -33,13 +34,16 @@ export default function BusinessListPage() {
     onError: (e: Error) => setError(e.message),
   });
 
-  // A single business has nothing to choose between, so this list is just an extra click on
-  // the way to the quotes page — skip straight there instead.
+  // A single business has nothing to choose between, so landing here (e.g. straight after
+  // login) skips straight to its quotes page. But "החלפת עסק" in the nav also points here on
+  // purpose, to let a single-business user manage/add businesses — that explicit visit must NOT
+  // bounce straight back out, or the link would look broken.
+  const manualSwitch = Boolean((location.state as { manualSwitch?: boolean } | null)?.manualSwitch);
   useEffect(() => {
-    if (!isLoading && businesses.length === 1) {
+    if (!manualSwitch && !isLoading && businesses.length === 1) {
       navigate(`/b/${businesses[0].id}`, { replace: true });
     }
-  }, [isLoading, businesses, navigate]);
+  }, [manualSwitch, isLoading, businesses, navigate]);
 
   return (
     <div className="workspace-picker">

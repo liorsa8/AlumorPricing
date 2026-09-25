@@ -63,7 +63,7 @@ export default function AppShell() {
           <NavLink to={`${b}/settings`} className={navLinkClass}>
             עלויות והגדרות
           </NavLink>
-          <NavLink to="/businesses" className={navLinkClass}>
+          <NavLink to="/businesses" state={{ manualSwitch: true }} className={navLinkClass}>
             החלפת עסק
           </NavLink>
           <button type="button" className="nav-signout" onClick={() => signOut()} title={user?.email ?? ''}>
