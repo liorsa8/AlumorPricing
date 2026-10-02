@@ -45,3 +45,26 @@ describe('print.css — the share-capture node is immune to viewport-relative mo
     expect(projectDetailPageSource).toContain('className="share-capture-node"');
   });
 });
+
+// Real bug seen on a phone: the mobile rule that keeps the openings table at min-width 640px
+// was written as a bare `.print-page table`, so it also hit the totals table — 640px inside a
+// ~320px box, pushing the amounts off-screen in the preview (only the labels were visible).
+describe('print.css — the mobile min-width rule only reaches the openings table', () => {
+  const mobile = css.match(/@media screen and \(max-width: 600px\)\s*\{([\s\S]*?)\r?\n\}/)![1];
+
+  it('applies min-width to the openings table (.print-table-wrap table)', () => {
+    expect(mobile).toMatch(/\.print-table-wrap\s+table\s*\{[^}]*min-width:\s*640px/);
+  });
+
+  it('never applies min-width to every table in the page (the totals table included)', () => {
+    expect(mobile).not.toMatch(/\.print-page\s+table\s*\{[^}]*min-width/);
+    expect(mobile).not.toMatch(/\.print-totals[^{]*\{[^}]*min-width/);
+  });
+
+  it('sizes the totals box to its container instead of a fixed 320px', () => {
+    const totalsRule = css.match(/\.print-totals\s*\{([^}]*)\}/)![1];
+    expect(totalsRule).toMatch(/max-width:\s*320px/);
+    expect(totalsRule).toMatch(/(^|[;\s])width:\s*100%/);
+    expect(totalsRule).not.toMatch(/(^|[;\s])width:\s*320px/);
+  });
+});

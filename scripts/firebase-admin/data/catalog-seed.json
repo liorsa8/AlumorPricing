@@ -1,0 +1,725 @@
+{
+  "app": "AlumorPricing",
+  "kind": "catalog",
+  "exportedAt": "2026-09-17T14:34:52.704Z",
+  "tables": {
+    "profile_systems": [
+      {
+        "name_he": "קליל 7000 (הזזה קלאסי) 2 כנפיים",
+        "series_code": "7000",
+        "manufacturer": "קליל",
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:24:34.214Z",
+        "id": 1
+      },
+      {
+        "name_he": "קליל 7300 בלגי (הזזה) 2 כנפיים",
+        "series_code": "7300",
+        "manufacturer": "קליל",
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:24:52.703Z",
+        "id": 2
+      },
+      {
+        "name_he": "קליל 9000 הזזה 2 כנפיים",
+        "series_code": "9000",
+        "manufacturer": "קליל",
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:25:30.963Z",
+        "id": 3
+      },
+      {
+        "name_he": "קליל 4100 בלגי ארט (ציר)",
+        "series_code": "4100",
+        "manufacturer": "קליל",
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:03:33.418Z",
+        "id": 4
+      },
+      {
+        "name_he": "קליל 4500 קלאסי (ציר)",
+        "series_code": "4500",
+        "manufacturer": "קליל",
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T16:15:25.548Z",
+        "id": 5
+      },
+      {
+        "name_he": "חלון פתיחה",
+        "series_code": "4400",
+        "manufacturer": "קליל",
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:13:37.314Z",
+        "id": 6
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T14:26:25.179Z",
+        "updated_at": "2026-09-13T16:11:51.544Z",
+        "name_he": "הזזה 7000 3 כנפיים",
+        "series_code": "7000",
+        "manufacturer": "קליל",
+        "id": 8
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T14:28:09.251Z",
+        "updated_at": "2026-09-13T17:03:57.131Z",
+        "name_he": "ארגז תריס גלילה חיצוני",
+        "series_code": "תריס גלילה שלב אור אלומיניום",
+        "manufacturer": null,
+        "id": 9
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T15:23:10.968Z",
+        "updated_at": "2026-09-13T15:23:10.968Z",
+        "name_he": "תריס הזזה",
+        "series_code": "תריס בורג",
+        "manufacturer": null,
+        "id": 10
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T15:49:14.679Z",
+        "updated_at": "2026-09-14T03:24:16.600Z",
+        "name_he": "רשת",
+        "series_code": "רשת קליל",
+        "manufacturer": null,
+        "id": 11
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T15:56:16.133Z",
+        "updated_at": "2026-09-13T15:56:49.447Z",
+        "name_he": "רשת",
+        "series_code": "רשת בורג 7000",
+        "manufacturer": null,
+        "id": 12
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T15:59:35.228Z",
+        "updated_at": "2026-09-13T15:59:35.228Z",
+        "name_he": "רשת",
+        "series_code": "9000",
+        "manufacturer": null,
+        "id": 13
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T16:17:02.075Z",
+        "updated_at": "2026-09-14T03:22:51.983Z",
+        "name_he": "רשת",
+        "series_code": "רשת נשלפת",
+        "manufacturer": null,
+        "id": 14
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T16:55:11.970Z",
+        "updated_at": "2026-09-13T17:01:35.329Z",
+        "name_he": "הזזה 6 כנפיים 7000",
+        "series_code": "7000",
+        "manufacturer": null,
+        "id": 15
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-14T12:30:51.863Z",
+        "updated_at": "2026-09-15T15:23:59.624Z",
+        "name_he": "מונובלוק+תריס חשמלי שלב אור מנוע רולסאן",
+        "series_code": "7000",
+        "manufacturer": null,
+        "id": 16
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-15T15:28:37.164Z",
+        "updated_at": "2026-09-15T15:50:56.339Z",
+        "name_he": "חלון 1700 2כנפיים +1רשת",
+        "series_code": "1700",
+        "manufacturer": null,
+        "id": 17
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-19T12:24:55.444Z",
+        "updated_at": "2026-09-19T12:24:55.444Z",
+        "name_he": "הזזה 7300 3 כנפיים",
+        "series_code": "7300",
+        "manufacturer": "קליל",
+        "id": 18
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-19T12:28:54.601Z",
+        "updated_at": "2026-09-24T04:19:18.636Z",
+        "name_he": "דלת פתיחה 4300",
+        "series_code": "4300",
+        "manufacturer": "קליל",
+        "id": 19
+      }
+    ],
+    "glass_types": [
+      {
+        "name_he": "שקופה",
+        "thickness_mm": "4 מ\"מ",
+        "price_per_sqm": 100,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:16:44.128Z",
+        "id": 1
+      },
+      {
+        "name_he": "זכוכית טריפלקס שקוף 3+3",
+        "thickness_mm": "6ממ",
+        "price_per_sqm": 150,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:16:11.242Z",
+        "id": 3
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T14:17:21.232Z",
+        "updated_at": "2026-09-13T14:17:21.232Z",
+        "name_he": "שקוף ",
+        "thickness_mm": "6ממ",
+        "price_per_sqm": 140,
+        "id": 4
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T14:17:56.871Z",
+        "updated_at": "2026-09-13T14:17:56.871Z",
+        "name_he": "טריפלקס3+3 אפור",
+        "thickness_mm": "6ממ",
+        "price_per_sqm": 200,
+        "id": 5
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T14:18:37.616Z",
+        "updated_at": "2026-09-13T14:18:37.616Z",
+        "name_he": "טריפלקס3+3חלבי",
+        "thickness_mm": "6ממ",
+        "price_per_sqm": 200,
+        "id": 6
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T14:19:13.272Z",
+        "updated_at": "2026-09-13T14:19:13.272Z",
+        "name_he": "צינצילה",
+        "thickness_mm": "4ממ",
+        "price_per_sqm": 100,
+        "id": 7
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T14:30:55.711Z",
+        "updated_at": "2026-09-13T14:30:55.711Z",
+        "name_he": "אחר",
+        "thickness_mm": "0",
+        "price_per_sqm": 0,
+        "id": 8
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-23T16:04:33.498Z",
+        "updated_at": "2026-09-23T16:04:33.498Z",
+        "name_he": "גלינה",
+        "thickness_mm": "8",
+        "price_per_sqm": 250,
+        "id": 9
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-23T16:05:23.077Z",
+        "updated_at": "2026-09-23T16:05:23.077Z",
+        "name_he": "צינצילה",
+        "thickness_mm": "6",
+        "price_per_sqm": 120,
+        "id": 10
+      }
+    ],
+    "accessories": [
+      {
+        "name_he": "ציר",
+        "unit": "יחידה",
+        "price_per_unit": 50,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:21:25.748Z",
+        "id": 1
+      },
+      {
+        "name_he": "מנעול כפול 7000/9000",
+        "unit": "יחידה",
+        "price_per_unit": 50,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:23:05.117Z",
+        "id": 2
+      },
+      {
+        "name_he": "ידית דלת",
+        "unit": "יחידה",
+        "price_per_unit": 60,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:03:33.418Z",
+        "id": 3
+      },
+      {
+        "name_he": "מנעול הזזה",
+        "unit": "יחידה",
+        "price_per_unit": 40,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:03:33.418Z",
+        "id": 4
+      },
+      {
+        "name_he": "מנעול רב נקודי",
+        "unit": "יחידה",
+        "price_per_unit": 220,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:03:33.418Z",
+        "id": 5
+      },
+      {
+        "name_he": "גלגל הזזה פלסטיק 7000",
+        "unit": "יחידה",
+        "price_per_unit": 18,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:20:17.194Z",
+        "id": 6
+      },
+      {
+        "name_he": "גלגל הזזה כפול 7000 מתכת",
+        "unit": "יחידה",
+        "price_per_unit": 40,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:20:52.967Z",
+        "id": 7
+      },
+      {
+        "name_he": "אטם גומי (EPDM)",
+        "unit": "מ׳",
+        "price_per_unit": 8,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:03:33.418Z",
+        "id": 8
+      },
+      {
+        "name_he": "מברשת איטום",
+        "unit": "מ׳",
+        "price_per_unit": 6,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:03:33.418Z",
+        "id": 9
+      },
+      {
+        "name_he": "מנעול אטימה לחלון",
+        "unit": "יחידה",
+        "price_per_unit": 55,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:03:33.418Z",
+        "id": 10
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T14:22:22.942Z",
+        "updated_at": "2026-09-13T14:22:22.942Z",
+        "name_he": "גלגל כפול 9000",
+        "unit": "יחידה",
+        "price_per_unit": 90,
+        "id": 11
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T14:48:27.412Z",
+        "updated_at": "2026-09-13T14:48:27.412Z",
+        "name_he": "מנוע רולסאן 20קג",
+        "unit": "יחידה",
+        "price_per_unit": 350,
+        "id": 12
+      },
+      {
+        "is_active": 1,
+        "created_at": "2026-09-13T14:49:52.237Z",
+        "updated_at": "2026-09-13T14:49:52.237Z",
+        "name_he": "מנוע קול סאן 100קג",
+        "unit": "יחידה",
+        "price_per_unit": 500,
+        "id": 13
+      }
+    ],
+    "opening_types": [
+      {
+        "name_he": "חלון הזזה",
+        "code": "sliding_window",
+        "sort_order": 1,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:03:33.418Z",
+        "id": 1,
+        "price_per_sqm": 126,
+        "has_glass": true
+      },
+      {
+        "name_he": "חלון ציר",
+        "code": "casement_window",
+        "sort_order": 2,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:03:33.418Z",
+        "id": 2,
+        "price_per_sqm": 248,
+        "has_glass": true
+      },
+      {
+        "name_he": "דלת כניסה",
+        "code": "entry_door",
+        "sort_order": 3,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:03:33.418Z",
+        "id": 3,
+        "price_per_sqm": 985,
+        "has_glass": true
+      },
+      {
+        "name_he": "דלת הזזה",
+        "code": "sliding_door",
+        "sort_order": 4,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:03:33.418Z",
+        "id": 4,
+        "price_per_sqm": 206.2,
+        "has_glass": true
+      },
+      {
+        "name_he": "חלון קבוע",
+        "code": "fixed_window",
+        "sort_order": 5,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:03:33.418Z",
+        "updated_at": "2026-09-13T14:03:33.418Z",
+        "id": 5,
+        "price_per_sqm": 95.6,
+        "has_glass": true
+      },
+      {
+        "name_he": "תריס גלילה",
+        "code": "תריס",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-13T14:35:00.779Z",
+        "updated_at": "2026-09-13T15:35:31.234Z",
+        "id": 6,
+        "price_per_sqm": 850,
+        "has_glass": false
+      },
+      {
+        "name_he": "תריס הזזה 2 כנפיים שלב 8 פלסטיק",
+        "code": "תריס",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-13T15:22:10.619Z",
+        "updated_at": "2026-09-13T15:26:57.880Z",
+        "id": 8,
+        "price_per_sqm": 650,
+        "has_glass": false
+      },
+      {
+        "name_he": "רשת הזזה קליל",
+        "code": "רשת",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-13T15:48:04.217Z",
+        "updated_at": "2026-09-13T15:50:37.918Z",
+        "id": 9,
+        "price_per_sqm": 200,
+        "has_glass": false
+      },
+      {
+        "name_he": "רשת הזזה בורג 7000",
+        "code": "רשת",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-13T15:54:27.596Z",
+        "updated_at": "2026-09-13T15:54:27.596Z",
+        "id": 10,
+        "price_per_sqm": 500,
+        "has_glass": false
+      },
+      {
+        "name_he": "רשת הזזה 9000",
+        "code": "רשת",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-13T16:00:15.375Z",
+        "updated_at": "2026-09-13T16:00:15.375Z",
+        "id": 11,
+        "price_per_sqm": 600,
+        "has_glass": false
+      },
+      {
+        "name_he": "רשת נשלפת",
+        "code": "רשת",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-13T16:16:26.699Z",
+        "updated_at": "2026-09-13T16:16:26.699Z",
+        "id": 12,
+        "price_per_sqm": 250,
+        "has_glass": false
+      },
+      {
+        "name_he": "הזזה 6 כנפיים",
+        "code": "7000",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-13T16:56:48.176Z",
+        "updated_at": "2026-09-13T16:56:48.176Z",
+        "id": 13,
+        "price_per_sqm": 482,
+        "has_glass": true
+      },
+      {
+        "name_he": "חלון מונובלוק 7000",
+        "code": "7000",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-14T12:29:58.151Z",
+        "updated_at": "2026-09-14T12:43:37.306Z",
+        "id": 14,
+        "price_per_sqm": 1250,
+        "has_glass": true
+      },
+      {
+        "name_he": "חלון 1700 2 כנפיים עם רשת",
+        "code": "1700",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-15T15:26:56.634Z",
+        "updated_at": "2026-09-25T06:08:53.839Z",
+        "id": 15,
+        "notes": "עודכן ממחקר שוק: מבוסס על השוואה מול מידרג/המקצוענים/אתרי סוחרים (top-alum, koren-aluminum, alumcrystal, italy-israel), ספטמבר 2026. המחיר בשוק הוא \"מותקן\" (חומר+עבודה+התקנה) — כאן מוצג רק חלק החומר, אחרי חלוקה ב-2.1 (100% עבודה + 10% התקנה שמתווספים בהצעה עצמה). המחיר לא משתנה לפי מספר כנפיים או רשת/בלי רשת — אף אתר לא מפרסם פירוק כזה; רשת מתומחרת כפריט נפרד בקטלוג.",
+        "price_per_sqm": 547.62,
+        "has_glass": true
+      },
+      {
+        "name_he": "חלון הזזה 7000",
+        "code": "7000",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-25T06:08:53.840Z",
+        "updated_at": "2026-09-25T06:08:53.840Z",
+        "id": 16,
+        "price_per_sqm": 452.38,
+        "has_glass": true,
+        "notes": "מחיר שוק ~950 ₪/מ\"ר (מותקן). מבוסס על השוואה מול מידרג/המקצוענים/אתרי סוחרים (top-alum, koren-aluminum, alumcrystal, italy-israel), ספטמבר 2026. המחיר בשוק הוא \"מותקן\" (חומר+עבודה+התקנה) — כאן מוצג רק חלק החומר, אחרי חלוקה ב-2.1 (100% עבודה + 10% התקנה שמתווספים בהצעה עצמה). המחיר לא משתנה לפי מספר כנפיים או רשת/בלי רשת — אף אתר לא מפרסם פירוק כזה; רשת מתומחרת כפריט נפרד בקטלוג.",
+        "accessories": []
+      },
+      {
+        "name_he": "חלון הזזה 9000",
+        "code": "9000",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-25T06:08:53.840Z",
+        "updated_at": "2026-09-25T06:08:53.840Z",
+        "id": 17,
+        "price_per_sqm": 523.81,
+        "has_glass": true,
+        "notes": "מחיר שוק ~1100 ₪/מ\"ר (מותקן). מבוסס על השוואה מול מידרג/המקצוענים/אתרי סוחרים (top-alum, koren-aluminum, alumcrystal, italy-israel), ספטמבר 2026. המחיר בשוק הוא \"מותקן\" (חומר+עבודה+התקנה) — כאן מוצג רק חלק החומר, אחרי חלוקה ב-2.1 (100% עבודה + 10% התקנה שמתווספים בהצעה עצמה). המחיר לא משתנה לפי מספר כנפיים או רשת/בלי רשת — אף אתר לא מפרסם פירוק כזה; רשת מתומחרת כפריט נפרד בקטלוג.",
+        "accessories": []
+      },
+      {
+        "name_he": "חלון הזזה 9200",
+        "code": "9200",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-25T06:08:53.840Z",
+        "updated_at": "2026-09-25T06:08:53.840Z",
+        "id": 18,
+        "price_per_sqm": 690.48,
+        "has_glass": true,
+        "notes": "מחיר שוק ~1450 ₪/מ\"ר (מותקן). מבוסס על השוואה מול מידרג/המקצוענים/אתרי סוחרים (top-alum, koren-aluminum, alumcrystal, italy-israel), ספטמבר 2026. המחיר בשוק הוא \"מותקן\" (חומר+עבודה+התקנה) — כאן מוצג רק חלק החומר, אחרי חלוקה ב-2.1 (100% עבודה + 10% התקנה שמתווספים בהצעה עצמה). המחיר לא משתנה לפי מספר כנפיים או רשת/בלי רשת — אף אתר לא מפרסם פירוק כזה; רשת מתומחרת כפריט נפרד בקטלוג.",
+        "accessories": []
+      },
+      {
+        "name_he": "חלון הזזה 7300 בלגי",
+        "code": "7300",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-25T06:08:53.840Z",
+        "updated_at": "2026-09-25T06:08:53.840Z",
+        "id": 19,
+        "price_per_sqm": 726.19,
+        "has_glass": true,
+        "notes": "מחיר שוק ~1525 ₪/מ\"ר (מותקן). מבוסס על השוואה מול מידרג/המקצוענים/אתרי סוחרים (top-alum, koren-aluminum, alumcrystal, italy-israel), ספטמבר 2026. המחיר בשוק הוא \"מותקן\" (חומר+עבודה+התקנה) — כאן מוצג רק חלק החומר, אחרי חלוקה ב-2.1 (100% עבודה + 10% התקנה שמתווספים בהצעה עצמה). המחיר לא משתנה לפי מספר כנפיים או רשת/בלי רשת — אף אתר לא מפרסם פירוק כזה; רשת מתומחרת כפריט נפרד בקטלוג.",
+        "accessories": []
+      },
+      {
+        "name_he": "חלון הזזה 7500 (משרדי)",
+        "code": "7500",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-25T06:08:53.840Z",
+        "updated_at": "2026-09-25T06:08:53.840Z",
+        "id": 20,
+        "price_per_sqm": 738.1,
+        "has_glass": true,
+        "notes": "מחיר שוק ~1550 ₪/מ\"ר (מותקן). מבוסס על השוואה מול מידרג/המקצוענים/אתרי סוחרים (top-alum, koren-aluminum, alumcrystal, italy-israel), ספטמבר 2026. המחיר בשוק הוא \"מותקן\" (חומר+עבודה+התקנה) — כאן מוצג רק חלק החומר, אחרי חלוקה ב-2.1 (100% עבודה + 10% התקנה שמתווספים בהצעה עצמה). המחיר לא משתנה לפי מספר כנפיים או רשת/בלי רשת — אף אתר לא מפרסם פירוק כזה; רשת מתומחרת כפריט נפרד בקטלוג.",
+        "accessories": []
+      },
+      {
+        "name_he": "חלון/דלת ציר 4300 בלגי",
+        "code": "4300",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-25T06:08:53.840Z",
+        "updated_at": "2026-09-25T06:08:53.840Z",
+        "id": 21,
+        "price_per_sqm": 726.19,
+        "has_glass": true,
+        "notes": "מחיר שוק ~1525 ₪/מ\"ר (מותקן). מבוסס על השוואה מול מידרג/המקצוענים/אתרי סוחרים (top-alum, koren-aluminum, alumcrystal, italy-israel), ספטמבר 2026. המחיר בשוק הוא \"מותקן\" (חומר+עבודה+התקנה) — כאן מוצג רק חלק החומר, אחרי חלוקה ב-2.1 (100% עבודה + 10% התקנה שמתווספים בהצעה עצמה). המחיר לא משתנה לפי מספר כנפיים או רשת/בלי רשת — אף אתר לא מפרסם פירוק כזה; רשת מתומחרת כפריט נפרד בקטלוג.",
+        "accessories": []
+      },
+      {
+        "name_he": "חלון ציר 4500 (פתיחה רגילה)",
+        "code": "4500",
+        "sort_order": 0,
+        "is_active": 1,
+        "created_at": "2026-09-25T06:08:53.840Z",
+        "updated_at": "2026-09-25T06:08:53.840Z",
+        "id": 22,
+        "price_per_sqm": 523.81,
+        "has_glass": true,
+        "notes": "מחיר שוק ~1100 ₪/מ\"ר (מותקן). מבוסס על השוואה מול מידרג/המקצוענים/אתרי סוחרים (top-alum, koren-aluminum, alumcrystal, italy-israel), ספטמבר 2026. המחיר בשוק הוא \"מותקן\" (חומר+עבודה+התקנה) — כאן מוצג רק חלק החומר, אחרי חלוקה ב-2.1 (100% עבודה + 10% התקנה שמתווספים בהצעה עצמה). המחיר לא משתנה לפי מספר כנפיים או רשת/בלי רשת — אף אתר לא מפרסם פירוק כזה; רשת מתומחרת כפריט נפרד בקטלוג. דגם זה מתומחר בשוק לפי מנגנון פתיחה (פתיחה רגילה/קיפ/דריי-קיפ), לא לפי כנפיים — הערך כאן הוא ל\"פתיחה רגילה\" בלבד; קיפ נוטה להיות זול יותר (כ-800-1,400 ליחידה), דריי-קיפ יקר יותר (כ-1,200-3,000 ליחידה). כדאי לשקול סוג פתח נפרד לכל מנגנון אם המחירים שונים מהותית אצלכם.",
+        "accessories": []
+      }
+    ],
+    "opening_type_accessories": [
+      {
+        "opening_type_id": 1,
+        "accessory_id": 6,
+        "quantity": 2,
+        "id": 1
+      },
+      {
+        "opening_type_id": 1,
+        "accessory_id": 4,
+        "quantity": 1,
+        "id": 2
+      },
+      {
+        "opening_type_id": 1,
+        "accessory_id": 8,
+        "quantity": 1,
+        "id": 3
+      },
+      {
+        "opening_type_id": 1,
+        "accessory_id": 9,
+        "quantity": 1,
+        "id": 4
+      },
+      {
+        "opening_type_id": 2,
+        "accessory_id": 1,
+        "quantity": 2,
+        "id": 5
+      },
+      {
+        "opening_type_id": 2,
+        "accessory_id": 2,
+        "quantity": 1,
+        "id": 6
+      },
+      {
+        "opening_type_id": 2,
+        "accessory_id": 4,
+        "quantity": 1,
+        "id": 7
+      },
+      {
+        "opening_type_id": 2,
+        "accessory_id": 8,
+        "quantity": 1,
+        "id": 8
+      },
+      {
+        "opening_type_id": 3,
+        "accessory_id": 1,
+        "quantity": 3,
+        "id": 9
+      },
+      {
+        "opening_type_id": 3,
+        "accessory_id": 5,
+        "quantity": 1,
+        "id": 10
+      },
+      {
+        "opening_type_id": 3,
+        "accessory_id": 3,
+        "quantity": 1,
+        "id": 11
+      },
+      {
+        "opening_type_id": 3,
+        "accessory_id": 8,
+        "quantity": 1,
+        "id": 12
+      },
+      {
+        "opening_type_id": 4,
+        "accessory_id": 6,
+        "quantity": 2,
+        "id": 13
+      },
+      {
+        "opening_type_id": 4,
+        "accessory_id": 4,
+        "quantity": 1,
+        "id": 14
+      },
+      {
+        "opening_type_id": 4,
+        "accessory_id": 8,
+        "quantity": 1,
+        "id": 15
+      },
+      {
+        "opening_type_id": 4,
+        "accessory_id": 9,
+        "quantity": 1,
+        "id": 16
+      },
+      {
+        "opening_type_id": 6,
+        "accessory_id": 12,
+        "quantity": 1,
+        "id": 17
+      }
+    ]
+  }
+}

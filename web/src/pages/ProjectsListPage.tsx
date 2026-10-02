@@ -1,31 +1,33 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { ProjectListItem, ProjectDetail } from '../api/types';
 import { formatCurrency, formatDate, STATUS_LABELS } from '../lib/format';
 
 export default function ProjectsListPage() {
+  const { businessId } = useParams<{ businessId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('');
 
   const { data: projects = [] } = useQuery({
-    queryKey: ['projects', statusFilter],
-    queryFn: () => api.get<ProjectListItem[]>(`/api/projects${statusFilter ? `?status=${statusFilter}` : ''}`),
+    queryKey: ['projects', businessId, statusFilter],
+    queryFn: () =>
+      api.get<ProjectListItem[]>(`/businesses/${businessId}/projects${statusFilter ? `?status=${statusFilter}` : ''}`),
   });
 
   const createMutation = useMutation({
-    mutationFn: () => api.post<ProjectDetail>('/api/projects', {}),
+    mutationFn: () => api.post<ProjectDetail>(`/businesses/${businessId}/projects`, {}),
     onSuccess: (project) => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      navigate(`/projects/${project.id}`);
+      queryClient.invalidateQueries({ queryKey: ['projects', businessId] });
+      navigate(`/b/${businessId}/projects/${project.id}`);
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/projects/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+    mutationFn: (id: string) => api.delete(`/businesses/${businessId}/projects/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects', businessId] }),
   });
 
   return (
@@ -69,7 +71,7 @@ export default function ProjectsListPage() {
               {projects.map((p) => (
                 <tr key={p.id}>
                   <td>
-                    <Link to={`/projects/${p.id}`}>#{p.quote_number}</Link>
+                    <Link to={`/b/${businessId}/projects/${p.id}`}>#{p.quote_number}</Link>
                   </td>
                   <td>{p.customer_name ?? '—'}</td>
                   <td>{p.title || '—'}</td>

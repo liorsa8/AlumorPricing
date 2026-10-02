@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import PrintableQuote from './PrintableQuote';
+import { formatCurrency } from '../lib/format';
 import type { ProjectDetail } from '../api/types';
 
 const project = {
@@ -58,5 +59,34 @@ describe('PrintableQuote', () => {
     expect(openingsTable).not.toBeNull();
     expect(openingsTable!.querySelectorAll('thead th').length).toBeGreaterThan(0);
     expect(openingsTable!.querySelectorAll('tbody tr').length).toBe(project.openings.length);
+  });
+
+  // Phone regression: the totals amounts rendered off-screen. The totals must stay in their own
+  // box, outside the (horizontally scrolling, min-width'd) openings table — see print.css.test.ts.
+  it('renders the totals with every amount, outside the openings table wrapper', () => {
+    const { container } = render(<PrintableQuote project={project} settings={undefined} />);
+
+    const totals = container.querySelector('.print-totals')!;
+    expect(totals.closest('.print-table-wrap')).toBeNull();
+    for (const amount of [project.pre_vat_total, project.vat_amount, project.total]) {
+      expect(totals.textContent).toContain(formatCurrency(amount));
+    }
+  });
+
+  // A per-item labor%/discount% override (set in ProjectDetailPage's item form) must change
+  // only that opening's displayed price on the printed quote — every other line keeps using the
+  // quote's own labor_pct_snapshot/discount_pct, exactly as before this feature existed.
+  it("shows a discounted line at its own price, without changing a sibling line without an override", () => {
+    const withOverride = {
+      ...project,
+      openings: [{ ...project.openings[0], discount_pct_override: 50 }, project.openings[1]],
+    } as unknown as ProjectDetail;
+    const { container } = render(<PrintableQuote project={withOverride} settings={undefined} />);
+
+    const rows = container.querySelectorAll('.print-table-wrap tbody tr');
+    // Line 1: 100% labor + 10% installation, then its own 50% discount instead of the quote's 0%.
+    expect(rows[0].textContent).toContain(formatCurrency(479.28 * 2.1 * 0.5));
+    // Line 2 is untouched: same 2.1 factor as before, no discount.
+    expect(rows[1].textContent).toContain(formatCurrency(600 * 2.1));
   });
 });

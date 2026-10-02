@@ -1,15 +1,18 @@
-export interface OpeningFactors {
-  profile_factor: number;
-  glass_area_ratio: number;
-}
-
+// Replaces an earlier two-coefficient model (meters of profile per m², fraction of the opening
+// that's glass) that turned out to be a real production hazard: an easy-to-fat-finger,
+// impossible-to-eyeball pair of multipliers — a single mistyped coefficient once turned a 1x1m
+// window into a ~756,000 ₪ line. The owner now enters one ₪/מ"ר price directly on the opening
+// type, checkable against real aluminum-pricing sites (e.g. "קליל 7000 ≈ 900-1,500 ₪/מ"ר").
 export interface OpeningPrices {
-  profile_price_per_meter: number;
+  // The opening type's own base ₪/מ"ר (see OpeningTypesPage). Whatever glass this line uses
+  // adds its own ₪/מ"ר surcharge on top, over the full area — 0 for an opening type that has no
+  // glass component at all (a net, a shutter, ...), never scaled by a ratio.
+  opening_type_price_per_sqm: number;
   glass_price_per_sqm: number;
 }
 
 export interface AccessoryInput {
-  accessory_id: number;
+  accessory_id: string;
   name_he: string;
   quantity: number;
   price_per_unit: number;
@@ -20,8 +23,7 @@ export interface AccessoryLineResult extends AccessoryInput {
 }
 
 export interface OpeningLineResult {
-  profile_length_m: number;
-  glass_area_sqm: number;
+  area_sqm: number;
   material_cost: number;
   accessories_cost: number;
   unit_subtotal: number;
@@ -33,15 +35,11 @@ export function computeOpeningLine(
   widthMm: number,
   heightMm: number,
   quantity: number,
-  factors: OpeningFactors,
   prices: OpeningPrices,
   accessories: AccessoryInput[]
 ): OpeningLineResult {
   const areaSqm = (widthMm / 1000) * (heightMm / 1000);
-  const profileLengthM = areaSqm * factors.profile_factor;
-  const glassAreaSqm = areaSqm * factors.glass_area_ratio;
-  const materialCost =
-    profileLengthM * prices.profile_price_per_meter + glassAreaSqm * prices.glass_price_per_sqm;
+  const materialCost = areaSqm * (prices.opening_type_price_per_sqm + prices.glass_price_per_sqm);
 
   const accessoryLines: AccessoryLineResult[] = accessories.map((a) => ({
     ...a,
@@ -53,8 +51,7 @@ export function computeOpeningLine(
   const lineSubtotal = unitSubtotal * quantity;
 
   return {
-    profile_length_m: profileLengthM,
-    glass_area_sqm: glassAreaSqm,
+    area_sqm: areaSqm,
     material_cost: materialCost,
     accessories_cost: accessoriesCost,
     unit_subtotal: unitSubtotal,
@@ -73,18 +70,52 @@ export interface ProjectTotalsResult {
   total: number;
 }
 
+// One line's own labor%/discount% — each opening can override the quote's own labor_pct/
+// discount_pct (a big job might get a per-item discount, or one item's labor knocked down),
+// so totals are built line by line instead of applying one project-wide % to the whole
+// material subtotal at once. Installation stays project-wide only — nobody asked to override
+// that per item, and there's no natural "this one item took less installation" case like there
+// is for labor/discount.
+export interface OpeningTotalsLine {
+  line_subtotal: number;
+  labor_pct: number;
+  discount_pct: number;
+}
+
+// The single multiplier that turns a line's raw material+accessories price into what it should
+// display as on a printed quote: labor and installation marked up, then the discount taken off
+// the result — algebraically the same per-line arithmetic computeProjectTotals does internally
+// (there just to get the itemized labor/installation/discount amounts, not a combined factor).
+// Exported so a display-only consumer (the printed quote) computes a line's shown price with
+// the same formula instead of re-deriving it, so the two can't drift apart.
+export function lineMarkupFactor(laborPct: number, installationPct: number, discountPct: number): number {
+  return (1 + (laborPct + installationPct) / 100) * (1 - discountPct / 100);
+}
+
 export function computeProjectTotals(
-  materialSubtotal: number,
-  laborPct: number,
+  lines: OpeningTotalsLine[],
   installationPct: number,
-  discountPct: number,
   vatPct: number
 ): ProjectTotalsResult {
-  const laborAmount = (materialSubtotal * laborPct) / 100;
-  const installationAmount = (materialSubtotal * installationPct) / 100;
-  const subtotalBeforeDiscount = materialSubtotal + laborAmount + installationAmount;
-  const discountAmount = (subtotalBeforeDiscount * discountPct) / 100;
-  const preVatTotal = subtotalBeforeDiscount - discountAmount;
+  let materialSubtotal = 0;
+  let laborAmount = 0;
+  let installationAmount = 0;
+  let discountAmount = 0;
+  let preVatTotal = 0;
+
+  for (const line of lines) {
+    const lineLabor = (line.line_subtotal * line.labor_pct) / 100;
+    const lineInstallation = (line.line_subtotal * installationPct) / 100;
+    const lineBeforeDiscount = line.line_subtotal + lineLabor + lineInstallation;
+    const lineDiscount = (lineBeforeDiscount * line.discount_pct) / 100;
+
+    materialSubtotal += line.line_subtotal;
+    laborAmount += lineLabor;
+    installationAmount += lineInstallation;
+    discountAmount += lineDiscount;
+    preVatTotal += lineBeforeDiscount - lineDiscount;
+  }
+
   const vatAmount = (preVatTotal * vatPct) / 100;
   const total = preVatTotal + vatAmount;
 

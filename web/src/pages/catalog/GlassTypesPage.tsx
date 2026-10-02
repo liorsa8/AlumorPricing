@@ -1,10 +1,13 @@
+import { useParams } from 'react-router-dom';
 import CatalogCrudPage from '../../components/CatalogCrudPage';
 
 export default function GlassTypesPage() {
+  const { businessId } = useParams<{ businessId: string }>();
   return (
     <CatalogCrudPage
       title="סוגי זכוכית"
-      endpoint="/api/glass-types"
+      kind="glass-types"
+      businessId={businessId!}
       queryKey="glass-types"
       addButtonLabel="הוסף סוג זכוכית"
       emptyStateLabel="אין עדיין סוגי זכוכית בקטלוג"

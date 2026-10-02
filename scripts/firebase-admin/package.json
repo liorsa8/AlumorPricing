@@ -1,0 +1,14 @@
+{
+  "name": "alumor-pricing-firebase-admin",
+  "private": true,
+  "version": "1.0.0",
+  "type": "commonjs",
+  "description": "One-off privileged scripts (admin claim, catalog seed) run locally with the Admin SDK. Deliberately NOT part of the root npm workspace, so this never ends up in the Vite build graph.",
+  "scripts": {
+    "set-admin": "node setAdminClaim.js",
+    "seed-catalog": "node seedCatalog.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

@@ -6,6 +6,7 @@ import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
+import { AuthProvider } from './auth/AuthProvider';
 import './styles/global.css';
 
 const queryClient = new QueryClient({
@@ -18,7 +19,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <HashRouter>
-        <App />
+        <AuthProvider>
+          <App />
+        </AuthProvider>
       </HashRouter>
     </QueryClientProvider>
   </React.StrictMode>
@@ -28,9 +31,16 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 // prompt instead of a plain bookmark shortcut. Still only takes effect over HTTPS or on
 // localhost — Chrome won't install a PWA served over a plain http:// LAN address.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
-      // Non-fatal: app works fine without it, just falls back to a plain shortcut.
+  if (import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
+        // Non-fatal: app works fine without it, just falls back to a plain shortcut.
+      });
     });
-  });
+  } else {
+    // sw.js serves non-HTML files cache-first, which is only safe for the build's hashed file
+    // names. Dev serves unhashed module URLs, so a worker there keeps showing stale code
+    // (and stale env, e.g. the emulator flag) — make sure none is active in dev.
+    navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.unregister()));
+  }
 }

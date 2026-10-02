@@ -1,11 +1,12 @@
+// A pure display label now (see api/types.ts's ProfileSystem) — no price here anymore.
 export const SEED_PROFILE_SYSTEMS = [
-  { name_he: 'קליל 7000 (הזזה קלאסי)', series_code: '7000', manufacturer: 'קליל', price_per_meter: 48 },
-  { name_he: 'קליל 7300 בלגי (הזזה)', series_code: '7300', manufacturer: 'קליל', price_per_meter: 68 },
-  { name_he: 'קליל 9000 (הזזה, מפתח גדול)', series_code: '9000', manufacturer: 'קליל', price_per_meter: 72 },
-  { name_he: 'קליל 4100 בלגי ארט (ציר)', series_code: '4100', manufacturer: 'קליל', price_per_meter: 75 },
-  { name_he: 'קליל 4500 קלאסי (ציר)', series_code: '4500', manufacturer: 'קליל', price_per_meter: 58 },
-  { name_he: 'קליל דלת בלגית (כניסה)', series_code: '4400', manufacturer: 'קליל', price_per_meter: 95 },
-  { name_he: 'PVC REHAU 76 מ"מ (6 תאים)', series_code: 'PVC 76', manufacturer: 'REHAU', price_per_meter: 42 },
+  { name_he: 'קליל 7000 (הזזה קלאסי)', series_code: '7000', manufacturer: 'קליל' },
+  { name_he: 'קליל 7300 בלגי (הזזה)', series_code: '7300', manufacturer: 'קליל' },
+  { name_he: 'קליל 9000 (הזזה, מפתח גדול)', series_code: '9000', manufacturer: 'קליל' },
+  { name_he: 'קליל 4100 בלגי ארט (ציר)', series_code: '4100', manufacturer: 'קליל' },
+  { name_he: 'קליל 4500 קלאסי (ציר)', series_code: '4500', manufacturer: 'קליל' },
+  { name_he: 'קליל דלת בלגית (כניסה)', series_code: '4400', manufacturer: 'קליל' },
+  { name_he: 'PVC REHAU 76 מ"מ (6 תאים)', series_code: 'PVC 76', manufacturer: 'REHAU' },
 ];
 
 export const SEED_GLASS_TYPES = [
@@ -30,18 +31,21 @@ export const SEED_ACCESSORIES = [
 export interface SeedOpeningType {
   name_he: string;
   code: string;
-  profile_factor: number;
-  glass_area_ratio: number;
+  price_per_sqm: number;
+  has_glass: boolean;
   sort_order: number;
   accessories: { name_he: string; quantity: number }[];
 }
 
+// price_per_sqm values back-derived from this file's own old profile_factor/glass_area_ratio ×
+// its previous profile-system/glass-type pairing (48 ₪/m profile, 220 ₪/sqm glass), so a fresh
+// dev seed prices roughly the same as before — treat as a starting point, not a real price list.
 export const SEED_OPENING_TYPES: SeedOpeningType[] = [
   {
     name_he: 'חלון הזזה',
     code: 'sliding_window',
-    profile_factor: 3.0,
-    glass_area_ratio: 0.82,
+    price_per_sqm: 104,
+    has_glass: true,
     sort_order: 1,
     accessories: [
       { name_he: 'גלגלת הזזה', quantity: 2 },
@@ -53,8 +57,8 @@ export const SEED_OPENING_TYPES: SeedOpeningType[] = [
   {
     name_he: 'חלון ציר',
     code: 'casement_window',
-    profile_factor: 3.6,
-    glass_area_ratio: 0.78,
+    price_per_sqm: 222,
+    has_glass: true,
     sort_order: 2,
     accessories: [
       { name_he: 'ציר', quantity: 2 },
@@ -66,8 +70,8 @@ export const SEED_OPENING_TYPES: SeedOpeningType[] = [
   {
     name_he: 'דלת כניסה',
     code: 'entry_door',
-    profile_factor: 4.2,
-    glass_area_ratio: 0.35,
+    price_per_sqm: 256,
+    has_glass: true,
     sort_order: 3,
     accessories: [
       { name_he: 'ציר', quantity: 3 },
@@ -79,8 +83,8 @@ export const SEED_OPENING_TYPES: SeedOpeningType[] = [
   {
     name_he: 'דלת הזזה',
     code: 'sliding_door',
-    profile_factor: 3.4,
-    glass_area_ratio: 0.75,
+    price_per_sqm: 176,
+    has_glass: true,
     sort_order: 4,
     accessories: [
       { name_he: 'גלגלת הזזה', quantity: 2 },
@@ -92,8 +96,8 @@ export const SEED_OPENING_TYPES: SeedOpeningType[] = [
   {
     name_he: 'חלון קבוע',
     code: 'fixed_window',
-    profile_factor: 2.2,
-    glass_area_ratio: 0.9,
+    price_per_sqm: 84,
+    has_glass: true,
     sort_order: 5,
     accessories: [],
   },
