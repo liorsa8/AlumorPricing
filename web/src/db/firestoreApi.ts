@@ -983,7 +983,16 @@ addRoute('GET', '/businesses/:businessId/projects', async (p, q) => {
   ]);
   rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
   const nameById = new Map(customers.map((c) => [c.id, c.name]));
-  return rows.map((r) => ({ ...r, customer_name: r.customer_id ? (nameById.get(r.customer_id) ?? null) : null }));
+  const addressById = new Map(customers.map((c) => [c.id, c.address]));
+  return rows.map((r) => ({
+    ...r,
+    customer_name: r.customer_id ? (nameById.get(r.customer_id) ?? null) : null,
+    customer_address: r.customer_id ? (addressById.get(r.customer_id) ?? null) : null,
+    openings: (r.openings ?? []).map((o) => ({
+      opening_type_name_snapshot: o.opening_type_name_snapshot,
+      quantity: o.quantity,
+    })),
+  }));
 });
 
 addRoute('GET', '/businesses/:businessId/projects/:id', async (p) => {
@@ -1083,6 +1092,49 @@ addRoute('DELETE', '/businesses/:businessId/projects/:id', async (p) => {
   if (!existing.exists()) throw new ApiError('not_found');
   await deleteDoc(ref);
   return { deleted: true };
+});
+
+// "שכפול" in the list row menu: a fresh draft that starts with the same customer, title and
+// openings as the source quote, repriced against the business's CURRENT catalog pricing (same
+// as a brand-new draft would be) rather than copying the source's frozen snapshot — the point of
+// duplicating is usually "same job, re-quote it today," not "reproduce an old price exactly."
+addRoute('POST', '/businesses/:businessId/projects/:id/duplicate', async (p) => {
+  const bizRef = businessDoc(p.businessId);
+  const srcRef = projectDoc(p.businessId, p.id);
+  const newRef = doc(projectsCol(p.businessId));
+  const now = nowIso();
+  const uid = currentUid();
+
+  await runTransaction(firestore, async (tx) => {
+    const srcSnap = await tx.get(srcRef);
+    if (!srcSnap.exists()) throw new ApiError('not_found');
+    const src = srcSnap.data() as ProjectRow;
+
+    const bizSnap = await tx.get(bizRef);
+    if (!bizSnap.exists()) throw new ApiError('not_found');
+    const biz = bizSnap.data() as BusinessRow;
+
+    const quoteNumber = biz.next_quote_number;
+    const totals = repriceProject(src.openings ?? [], biz, src.discount_pct);
+    const data: Omit<ProjectRow, 'id'> = {
+      owner_uid: uid,
+      customer_id: src.customer_id,
+      quote_number: quoteNumber,
+      title: src.title,
+      status: 'draft',
+      notes: src.notes,
+      discount_pct: src.discount_pct,
+      ...totals,
+      created_at: now,
+      updated_at: now,
+      next_opening_id: src.next_opening_id,
+      openings: src.openings ?? [],
+    };
+    tx.set(newRef, data);
+    tx.update(bizRef, { next_quote_number: quoteNumber + 1 });
+  });
+
+  return loadProjectDetail(p.businessId, newRef.id);
 });
 
 async function repriceOpening(businessId: string, o: OpeningEntry): Promise<OpeningEntry> {

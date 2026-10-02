@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../auth/AuthProvider';
+import { api } from '../api/client';
+import { Business, ProjectListItem } from '../api/types';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) => (isActive ? 'active' : '');
 
@@ -9,6 +12,17 @@ export default function AppShell() {
   const { businessId } = useParams<{ businessId: string }>();
   const { user, signOut } = useAuth();
   const b = `/b/${businessId}`;
+
+  const { data: business } = useQuery({
+    queryKey: ['business', businessId],
+    queryFn: () => api.get<Business>(`/businesses/${businessId}`),
+  });
+  // Same queryKey/queryFn as ProjectsListPage's own fetch — react-query dedupes the two into one
+  // request and shares the cache, so the nav badge doesn't cost an extra round trip.
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects', businessId],
+    queryFn: () => api.get<ProjectListItem[]>(`/businesses/${businessId}/projects`),
+  });
 
   return (
     <div className="app-shell">
@@ -35,41 +49,59 @@ export default function AppShell() {
         {/* Only meaningful on mobile, where nav becomes a slide-in drawer — tapping outside
             it (on this backdrop) closes it, same as picking a link. */}
         {menuOpen && <div className="nav-backdrop" onClick={() => setMenuOpen(false)} />}
-        {/* Closing on any click inside is deliberate — every child here is a nav link, so
-            this collapses the mobile drawer as soon as the user picks a destination. */}
-        <nav className={menuOpen ? 'open' : ''} onClick={() => setMenuOpen(false)}>
-          <NavLink to={b} className={navLinkClass} end>
-            הצעות מחיר
-          </NavLink>
-          <NavLink to={`${b}/customers`} className={navLinkClass}>
-            לקוחות
-          </NavLink>
+        {/* Closing on any click inside is deliberate — every actionable child here is a nav
+            link or the switch/sign-out links, so this collapses the mobile drawer as soon as
+            the user picks a destination. */}
+        <div className={`app-nav-panel${menuOpen ? ' open' : ''}`} onClick={() => setMenuOpen(false)}>
+          <nav>
+            <NavLink to={b} className={navLinkClass} end>
+              הצעות מחיר
+              <span className="nav-count">{projects.length}</span>
+            </NavLink>
+            <NavLink to={`${b}/customers`} className={navLinkClass}>
+              לקוחות
+            </NavLink>
+          </nav>
 
-          <div className="nav-group-title">קטלוג</div>
-          <NavLink to={`${b}/catalog/opening-types`} className={navLinkClass}>
-            סוגי פתחים
-          </NavLink>
-          <NavLink to={`${b}/catalog/profile-systems`} className={navLinkClass}>
-            מערכות פרופיל
-          </NavLink>
-          <NavLink to={`${b}/catalog/glass-types`} className={navLinkClass}>
-            סוגי זכוכית
-          </NavLink>
-          <NavLink to={`${b}/catalog/accessories`} className={navLinkClass}>
-            אביזרים
-          </NavLink>
+          <div className="nav-group">
+            <div className="nav-group-title">קטלוג</div>
+            <NavLink to={`${b}/catalog/opening-types`} className={navLinkClass}>
+              סוגי פתחים
+            </NavLink>
+            <NavLink to={`${b}/catalog/profile-systems`} className={navLinkClass}>
+              מערכות פרופיל
+            </NavLink>
+            <NavLink to={`${b}/catalog/glass-types`} className={navLinkClass}>
+              סוגי זכוכית
+            </NavLink>
+            <NavLink to={`${b}/catalog/accessories`} className={navLinkClass}>
+              אביזרים
+            </NavLink>
+          </div>
 
-          <div className="nav-group-title">הגדרות</div>
-          <NavLink to={`${b}/settings`} className={navLinkClass}>
-            עלויות והגדרות
-          </NavLink>
-          <NavLink to="/businesses" state={{ manualSwitch: true }} className={navLinkClass}>
-            החלפת עסק
-          </NavLink>
-          <button type="button" className="nav-signout" onClick={() => signOut()} title={user?.email ?? ''}>
-            התנתקות
-          </button>
-        </nav>
+          <div className="nav-group">
+            <div className="nav-group-title">הגדרות</div>
+            <NavLink to={`${b}/settings`} className={navLinkClass}>
+              עלויות והגדרות
+            </NavLink>
+          </div>
+
+          <div className="app-user-card">
+            <div className="app-user-avatar">{(business?.company_name || '?').trim().charAt(0).toUpperCase()}</div>
+            <div className="app-user-info">
+              <div className="app-user-name">{business?.company_name || 'העסק שלי'}</div>
+              <div className="app-user-links">
+                <NavLink to="/businesses" state={{ manualSwitch: true }}>
+                  החלפת עסק
+                </NavLink>
+                <span>·</span>
+                <button type="button" onClick={() => signOut()} title={user?.email ?? ''}>
+                  התנתקות
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </aside>
       <main className="app-main">
         <Outlet />
