@@ -160,13 +160,13 @@ export default function ProjectsListPage() {
     return [
       {
         label: 'הצעות פתוחות',
-        value: formatQuoteTotal(stats.openTotal),
-        note: `${stats.openCount} הצעות ממתינות לתשובה`,
+        value: String(stats.openCount),
+        note: 'הצעות ממתינות לתשובה',
         noteColor: 'var(--color-text-muted)',
       },
       {
         label: 'אושרו החודש',
-        value: formatQuoteTotal(stats.approvedThisMonthTotal),
+        value: String(stats.approvedThisMonthCount),
         note: monthChange === null ? 'אין נתונים לחודש הקודם' : `${monthChange >= 0 ? '▲' : '▼'} ${Math.abs(monthChange)}% לעומת חודש קודם`,
         noteColor: trendColor(monthChange),
       },

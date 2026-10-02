@@ -117,7 +117,7 @@ describe('computeDashboardKpiStats', () => {
       openTotal: 0,
       openCount: 0,
       approvedThisMonthTotal: 0,
-      approvedLastMonthTotal: 0,
+      approvedLastMonthTotal: 0, approvedThisMonthCount: 0, approvedLastMonthCount: 0,
       approvedCount: 0,
       rejectedCount: 0,
     });
@@ -126,39 +126,39 @@ describe('computeDashboardKpiStats', () => {
 
 describe('closeRatePct', () => {
   it('is null when nothing has been answered yet (no approved or rejected quotes)', () => {
-    expect(closeRatePct({ openTotal: 0, openCount: 0, approvedThisMonthTotal: 0, approvedLastMonthTotal: 0, approvedCount: 0, rejectedCount: 0 })).toBeNull();
+    expect(closeRatePct({ openTotal: 0, openCount: 0, approvedThisMonthTotal: 0, approvedLastMonthTotal: 0, approvedThisMonthCount: 0, approvedLastMonthCount: 0, approvedCount: 0, rejectedCount: 0 })).toBeNull();
   });
 
   it('is 100% when every answered quote was approved', () => {
-    expect(closeRatePct({ openTotal: 0, openCount: 0, approvedThisMonthTotal: 0, approvedLastMonthTotal: 0, approvedCount: 3, rejectedCount: 0 })).toBe(100);
+    expect(closeRatePct({ openTotal: 0, openCount: 0, approvedThisMonthTotal: 0, approvedLastMonthTotal: 0, approvedThisMonthCount: 0, approvedLastMonthCount: 0, approvedCount: 3, rejectedCount: 0 })).toBe(100);
   });
 
   it('is 0% when every answered quote was rejected', () => {
-    expect(closeRatePct({ openTotal: 0, openCount: 0, approvedThisMonthTotal: 0, approvedLastMonthTotal: 0, approvedCount: 0, rejectedCount: 3 })).toBe(0);
+    expect(closeRatePct({ openTotal: 0, openCount: 0, approvedThisMonthTotal: 0, approvedLastMonthTotal: 0, approvedThisMonthCount: 0, approvedLastMonthCount: 0, approvedCount: 0, rejectedCount: 3 })).toBe(0);
   });
 
   it('rounds to the nearest whole percent', () => {
     // 2 approved of 3 answered = 66.67% -> 67
-    expect(closeRatePct({ openTotal: 0, openCount: 0, approvedThisMonthTotal: 0, approvedLastMonthTotal: 0, approvedCount: 2, rejectedCount: 1 })).toBe(67);
+    expect(closeRatePct({ openTotal: 0, openCount: 0, approvedThisMonthTotal: 0, approvedLastMonthTotal: 0, approvedThisMonthCount: 0, approvedLastMonthCount: 0, approvedCount: 2, rejectedCount: 1 })).toBe(67);
   });
 });
 
 describe('approvedMonthChangePct', () => {
   it('is null when last month had no approved total to compare against', () => {
     expect(
-      approvedMonthChangePct({ openTotal: 0, openCount: 0, approvedThisMonthTotal: 500, approvedLastMonthTotal: 0, approvedCount: 0, rejectedCount: 0 })
+      approvedMonthChangePct({ openTotal: 0, openCount: 0, approvedThisMonthTotal: 0, approvedLastMonthTotal: 0, approvedThisMonthCount: 5, approvedLastMonthCount: 0, approvedCount: 0, rejectedCount: 0 })
     ).toBeNull();
   });
 
   it('is positive when this month is ahead of last month', () => {
     expect(
-      approvedMonthChangePct({ openTotal: 0, openCount: 0, approvedThisMonthTotal: 150, approvedLastMonthTotal: 100, approvedCount: 0, rejectedCount: 0 })
+      approvedMonthChangePct({ openTotal: 0, openCount: 0, approvedThisMonthTotal: 0, approvedLastMonthTotal: 0, approvedThisMonthCount: 150, approvedLastMonthCount: 100, approvedCount: 0, rejectedCount: 0 })
     ).toBe(50);
   });
 
   it('is negative when this month is behind last month', () => {
     expect(
-      approvedMonthChangePct({ openTotal: 0, openCount: 0, approvedThisMonthTotal: 0, approvedLastMonthTotal: 100, approvedCount: 0, rejectedCount: 0 })
+      approvedMonthChangePct({ openTotal: 0, openCount: 0, approvedThisMonthTotal: 0, approvedLastMonthTotal: 0, approvedThisMonthCount: 0, approvedLastMonthCount: 100, approvedCount: 0, rejectedCount: 0 })
     ).toBe(-100);
   });
 });

@@ -232,7 +232,7 @@ export default function ProjectDetailPage() {
           <span className={`badge status-${project.status}`}>{STATUS_LABELS[project.status]}</span>
         </h2>
         <div>
-          <Link className="btn" to={`/b/${businessId}/projects/${project.id}/print`} target="_blank">
+          <Link className="btn" to={`/b/${businessId}/projects/${project.id}/print`}>
             תצוגה מקדימה
           </Link>{' '}
           <button className="btn" onClick={handleShare}>

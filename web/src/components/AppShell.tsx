@@ -46,6 +46,10 @@ export default function AppShell() {
             link or the switch/sign-out links, so this collapses the mobile drawer as soon as
             the user picks a destination. */}
         <div className={`app-nav-panel${menuOpen ? ' open' : ''}`} onClick={() => setMenuOpen(false)}>
+          <div className="app-brand app-drawer-brand">
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="app-logo" />
+            <h1>AlumorPricing</h1>
+          </div>
           <nav>
             <NavLink to={b} className={navLinkClass} end>
               הצעות מחיר

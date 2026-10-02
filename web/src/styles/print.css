@@ -123,6 +123,9 @@
 }
 
 @media print {
+  .print-back-bar {
+    display: none;
+  }
   body {
     background: #fff;
   }

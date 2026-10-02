@@ -3,12 +3,13 @@ import { ProjectStatus } from '../api/types';
 const currencyFormatter = new Intl.NumberFormat('he-IL', {
   style: 'currency',
   currency: 'ILS',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
 });
 
+// Agorot are never shown — amounts always round down (174.56 -> 174).
 export function formatCurrency(value: number): string {
-  return currencyFormatter.format(value);
+  return currencyFormatter.format(Math.floor(value));
 }
 
 const dateFormatter = new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' });
@@ -37,12 +38,9 @@ export function formatLongHebrewDate(date: Date): string {
   return longHebrewDateFormatter.format(date);
 }
 
-// A leaner currency format than formatCurrency() for the quotes table: no decimals for a round
-// total (the common case), two only when the total actually has cents — formatCurrency's fixed
-// two decimals read as noise in a dense list of mostly-round quote totals.
+// Compact "₪1,234" format for the quotes table; always rounds down, never shows agorot.
 export function formatQuoteTotal(value: number): string {
-  const hasFraction = Math.round(value * 100) % 100 !== 0;
-  return `₪${value.toLocaleString('en-US', { minimumFractionDigits: hasFraction ? 2 : 0, maximumFractionDigits: 2 })}`;
+  return `₪${Math.floor(value).toLocaleString('en-US')}`;
 }
 
 // Shared by every "circle avatar with a letter in it" spot that has only one name-ish source to

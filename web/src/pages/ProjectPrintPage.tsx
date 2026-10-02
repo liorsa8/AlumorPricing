@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { ProjectDetail, Business } from '../api/types';
@@ -11,6 +11,7 @@ import PrintableQuote from '../components/PrintableQuote';
 // straight into the OS print dialog.
 export default function ProjectPrintPage() {
   const { businessId, id } = useParams<{ businessId: string; id: string }>();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const autoprint = searchParams.get('autoprint') === '1';
 
@@ -35,5 +36,14 @@ export default function ProjectPrintPage() {
 
   if (!project) return <div style={{ padding: 32 }}>טוען...</div>;
 
-  return <PrintableQuote project={project} settings={business} />;
+  return (
+    <>
+      <div className="print-back-bar">
+        <button type="button" className="btn" onClick={() => navigate(`/b/${businessId}/projects/${id}`)}>
+          ← חזרה
+        </button>
+      </div>
+      <PrintableQuote project={project} settings={business} />
+    </>
+  );
 }

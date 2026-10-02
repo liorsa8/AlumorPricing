@@ -127,6 +127,14 @@ textarea {
   flex-shrink: 0;
 }
 
+.app-drawer-brand {
+  display: none;
+}
+
+.print-back-bar {
+  padding: 12px 16px 0;
+}
+
 .app-logo {
   height: 36px;
   width: 36px;
@@ -1153,6 +1161,11 @@ tbody tr:hover {
 
   .app-nav-panel.open {
     transform: translateX(0);
+  }
+
+  .app-drawer-brand {
+    display: flex;
+    flex-shrink: 0;
   }
 
   .nav-backdrop {

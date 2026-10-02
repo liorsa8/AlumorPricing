@@ -22,6 +22,8 @@ export interface DashboardKpiStats {
   openCount: number;
   approvedThisMonthTotal: number;
   approvedLastMonthTotal: number;
+  approvedThisMonthCount: number;
+  approvedLastMonthCount: number;
   approvedCount: number;
   rejectedCount: number;
 }
@@ -49,6 +51,8 @@ export function computeDashboardKpiStats(projects: ProjectListItem[], now: Date 
     openCount: open.length,
     approvedThisMonthTotal: approvedThisMonth.reduce((s, p) => s + p.total, 0),
     approvedLastMonthTotal: approvedLastMonth.reduce((s, p) => s + p.total, 0),
+    approvedThisMonthCount: approvedThisMonth.length,
+    approvedLastMonthCount: approvedLastMonth.length,
     approvedCount: approved.length,
     rejectedCount: rejected.length,
   };
@@ -61,9 +65,10 @@ export function closeRatePct(stats: DashboardKpiStats): number | null {
   return Math.round((stats.approvedCount / answered) * 100);
 }
 
-// null = no approved total last month to compare against (including "last month was also zero"),
-// so a percentage change would be either undefined or a meaningless "+Infinity%".
+// null = no approved quotes last month to compare against (including "last month was also zero"),
+// so a percentage change would be either undefined or a meaningless "+Infinity%". Based on counts,
+// since the dashboard shows quantities only, not amounts.
 export function approvedMonthChangePct(stats: DashboardKpiStats): number | null {
-  if (stats.approvedLastMonthTotal <= 0) return null;
-  return Math.round(((stats.approvedThisMonthTotal - stats.approvedLastMonthTotal) / stats.approvedLastMonthTotal) * 100);
+  if (stats.approvedLastMonthCount <= 0) return null;
+  return Math.round(((stats.approvedThisMonthCount - stats.approvedLastMonthCount) / stats.approvedLastMonthCount) * 100);
 }
