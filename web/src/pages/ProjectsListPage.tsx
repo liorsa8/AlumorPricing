@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
@@ -73,6 +74,7 @@ export default function ProjectsListPage() {
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<ProjectStatus | 'all'>('all');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [sharingId, setSharingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -284,33 +286,44 @@ export default function ProjectsListPage() {
                       type="button"
                       title="עוד"
                       className="icon-btn plain"
-                      onClick={() => setMenuOpenId(menuOpenId === p.id ? null : p.id)}
+                      onClick={(e) => {
+                        if (menuOpenId === p.id) {
+                          setMenuOpenId(null);
+                          return;
+                        }
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setMenuPos({ top: rect.bottom + 4, left: rect.right - 150 });
+                        setMenuOpenId(p.id);
+                      }}
                     >
                       ⋯
                     </button>
-                    {menuOpenId === p.id && (
-                      <div className="quotes-row-menu" ref={menuRef}>
-                        <button type="button" onClick={() => closeMenuThen(() => navigate(`/b/${businessId}/projects/${p.id}`))}>
-                          עריכה
-                        </button>
-                        <button type="button" onClick={() => closeMenuThen(() => duplicateMutation.mutate(p.id))}>
-                          שכפול
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => closeMenuThen(() => window.open(`#/b/${businessId}/projects/${p.id}/print?autoprint=1`, '_blank'))}
-                        >
-                          הורדת PDF
-                        </button>
-                        <button
-                          type="button"
-                          className="danger"
-                          onClick={() => closeMenuThen(() => confirm('למחוק את ההצעה?') && deleteMutation.mutate(p.id))}
-                        >
-                          מחיקה
-                        </button>
-                      </div>
-                    )}
+                    {menuOpenId === p.id &&
+                      menuPos &&
+                      createPortal(
+                        <div className="quotes-row-menu" style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }} ref={menuRef}>
+                          <button type="button" onClick={() => closeMenuThen(() => navigate(`/b/${businessId}/projects/${p.id}`))}>
+                            עריכה
+                          </button>
+                          <button type="button" onClick={() => closeMenuThen(() => duplicateMutation.mutate(p.id))}>
+                            שכפול
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => closeMenuThen(() => window.open(`#/b/${businessId}/projects/${p.id}/print?autoprint=1`, '_blank'))}
+                          >
+                            הורדת PDF
+                          </button>
+                          <button
+                            type="button"
+                            className="danger"
+                            onClick={() => closeMenuThen(() => confirm('למחוק את ההצעה?') && deleteMutation.mutate(p.id))}
+                          >
+                            מחיקה
+                          </button>
+                        </div>,
+                        document.body,
+                      )}
                   </div>
                 </div>
               );
