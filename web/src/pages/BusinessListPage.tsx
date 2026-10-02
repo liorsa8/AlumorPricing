@@ -4,10 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Business } from '../api/types';
 import { useAuth } from '../auth/AuthProvider';
+import { firstLetterInitial } from '../lib/format';
 
 function initials(name: string | null | undefined, email: string | null | undefined): string {
-  const source = name || email || '?';
-  return source.trim().charAt(0).toUpperCase();
+  return firstLetterInitial(name || email);
 }
 
 export default function BusinessListPage() {
@@ -71,7 +71,7 @@ export default function BusinessListPage() {
             {businesses.map((b) => (
               <button key={b.id} className="workspace-row" onClick={() => navigate(`/b/${b.id}`)}>
                 <span className="workspace-row-tile" aria-hidden="true">
-                  {(b.company_name || '?').trim().charAt(0).toUpperCase()}
+                  {firstLetterInitial(b.company_name)}
                 </span>
                 <span className="workspace-row-name">{b.company_name || '(ללא שם)'}</span>
                 <span className="workspace-row-arrow" aria-hidden="true">
