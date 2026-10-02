@@ -1,3 +1,5 @@
+import { ProjectStatus } from '../api/types';
+
 const currencyFormatter = new Intl.NumberFormat('he-IL', {
   style: 'currency',
   currency: 'ILS',
@@ -43,6 +45,13 @@ export function formatQuoteTotal(value: number): string {
   return `₪${value.toLocaleString('en-US', { minimumFractionDigits: hasFraction ? 2 : 0, maximumFractionDigits: 2 })}`;
 }
 
+// Shared by every "circle avatar with a letter in it" spot that has only one name-ish source to
+// work with (a business name, a customer name with no second word) — AppShell's user card,
+// BusinessListPage's workspace tiles and account fallback avatar.
+export function firstLetterInitial(source: string | null | undefined): string {
+  return (source || '?').trim().charAt(0).toUpperCase();
+}
+
 // "משפחת לוי" -> "ל", "דנה אברהם" -> "דא" — drops the "משפחת" honorific before taking initials
 // since it's a title, not a name part, and would otherwise always collapse to the same "מ".
 export function clientInitials(name: string | null | undefined): string {
@@ -81,7 +90,7 @@ export function summarizeOpenings(openings: Array<{ opening_type_name_snapshot: 
     .join(' · ');
 }
 
-export const STATUS_LABELS: Record<string, string> = {
+export const STATUS_LABELS: Record<ProjectStatus, string> = {
   draft: 'טיוטה',
   sent: 'נשלחה',
   accepted: 'אושרה',

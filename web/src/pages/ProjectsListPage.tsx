@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Business, ProjectDetail, ProjectListItem, ProjectStatus } from '../api/types';
+import { ProjectDetail, ProjectStatus } from '../api/types';
 import {
   STATUS_LABELS,
   avatarColors,
@@ -13,6 +13,7 @@ import {
   summarizeOpenings,
 } from '../lib/format';
 import { shareQuoteImage } from '../lib/shareQuote';
+import { useBusinessQuery, useProjectsQuery } from '../lib/queries';
 import {
   approvedMonthChangePct,
   closeRatePct,
@@ -23,6 +24,12 @@ import {
 import PrintableQuote from '../components/PrintableQuote';
 
 const STATUS_TABS: Array<ProjectStatus | 'all'> = ['all', 'draft', 'sent', 'accepted', 'rejected', 'archived'];
+
+// null = neutral/muted (no signal to show, e.g. nothing to compare against yet).
+function trendColor(pct: number | null): string {
+  if (pct === null) return 'var(--color-text-muted)';
+  return pct >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+}
 
 function SearchIcon() {
   return (
@@ -71,16 +78,10 @@ export default function ProjectsListPage() {
   const menuRef = useRef<HTMLDivElement>(null);
   const shareNodeRef = useRef<HTMLDivElement>(null);
 
-  // Same queryKey/queryFn as AppShell's own fetch for the nav badge — react-query dedupes them
-  // into one request and shares the cache.
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects', businessId],
-    queryFn: () => api.get<ProjectListItem[]>(`/businesses/${businessId}/projects`),
-  });
-  const { data: business } = useQuery({
-    queryKey: ['business', businessId],
-    queryFn: () => api.get<Business>(`/businesses/${businessId}`),
-  });
+  // Same hook (same queryKey/queryFn) as AppShell's own fetch for the nav badge — react-query
+  // dedupes them into one request and shares the cache.
+  const { data: projects = [] } = useProjectsQuery(businessId);
+  const { data: business } = useBusinessQuery(businessId);
   const { data: sharingProject } = useQuery({
     queryKey: ['project', businessId, sharingId],
     queryFn: () => api.get<ProjectDetail>(`/businesses/${businessId}/projects/${sharingId}`),
@@ -109,6 +110,13 @@ export default function ProjectsListPage() {
     mutationFn: (id: string) => api.delete(`/businesses/${businessId}/projects/${id}`),
     onSuccess: invalidateProjects,
   });
+
+  // Every row-menu action closes the menu first — this just removes that repeated line from
+  // each handler below.
+  function closeMenuThen(action: () => void) {
+    setMenuOpenId(null);
+    action();
+  }
 
   // Close the "⋯" row menu on an outside click.
   useEffect(() => {
@@ -158,7 +166,7 @@ export default function ProjectsListPage() {
         label: 'אושרו החודש',
         value: formatQuoteTotal(stats.approvedThisMonthTotal),
         note: monthChange === null ? 'אין נתונים לחודש הקודם' : `${monthChange >= 0 ? '▲' : '▼'} ${Math.abs(monthChange)}% לעומת חודש קודם`,
-        noteColor: monthChange === null ? 'var(--color-text-muted)' : monthChange >= 0 ? 'var(--color-success)' : 'var(--color-danger)',
+        noteColor: trendColor(monthChange),
       },
       {
         label: 'אחוז סגירה',
@@ -169,7 +177,7 @@ export default function ProjectsListPage() {
     ];
   }, [projects]);
 
-  const shownSum = visibleRows.reduce((s, p) => s + p.total, 0);
+  const shownSum = useMemo(() => visibleRows.reduce((s, p) => s + p.total, 0), [visibleRows]);
 
   return (
     <div>
@@ -282,40 +290,22 @@ export default function ProjectsListPage() {
                     </button>
                     {menuOpenId === p.id && (
                       <div className="quotes-row-menu" ref={menuRef}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMenuOpenId(null);
-                            navigate(`/b/${businessId}/projects/${p.id}`);
-                          }}
-                        >
+                        <button type="button" onClick={() => closeMenuThen(() => navigate(`/b/${businessId}/projects/${p.id}`))}>
                           עריכה
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMenuOpenId(null);
-                            duplicateMutation.mutate(p.id);
-                          }}
-                        >
+                        <button type="button" onClick={() => closeMenuThen(() => duplicateMutation.mutate(p.id))}>
                           שכפול
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            setMenuOpenId(null);
-                            window.open(`#/b/${businessId}/projects/${p.id}/print?autoprint=1`, '_blank');
-                          }}
+                          onClick={() => closeMenuThen(() => window.open(`#/b/${businessId}/projects/${p.id}/print?autoprint=1`, '_blank'))}
                         >
                           הורדת PDF
                         </button>
                         <button
                           type="button"
                           className="danger"
-                          onClick={() => {
-                            setMenuOpenId(null);
-                            if (confirm('למחוק את ההצעה?')) deleteMutation.mutate(p.id);
-                          }}
+                          onClick={() => closeMenuThen(() => confirm('למחוק את ההצעה?') && deleteMutation.mutate(p.id))}
                         >
                           מחיקה
                         </button>

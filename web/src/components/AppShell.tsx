@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../auth/AuthProvider';
-import { api } from '../api/client';
-import { Business, ProjectListItem } from '../api/types';
+import { firstLetterInitial } from '../lib/format';
+import { useBusinessQuery, useProjectsQuery } from '../lib/queries';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) => (isActive ? 'active' : '');
 
@@ -13,16 +12,10 @@ export default function AppShell() {
   const { user, signOut } = useAuth();
   const b = `/b/${businessId}`;
 
-  const { data: business } = useQuery({
-    queryKey: ['business', businessId],
-    queryFn: () => api.get<Business>(`/businesses/${businessId}`),
-  });
-  // Same queryKey/queryFn as ProjectsListPage's own fetch — react-query dedupes the two into one
-  // request and shares the cache, so the nav badge doesn't cost an extra round trip.
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects', businessId],
-    queryFn: () => api.get<ProjectListItem[]>(`/businesses/${businessId}/projects`),
-  });
+  const { data: business } = useBusinessQuery(businessId);
+  // Same hook (same queryKey/queryFn) as ProjectsListPage's own fetch — react-query dedupes the
+  // two into one request and shares the cache, so the nav badge doesn't cost an extra round trip.
+  const { data: projects = [] } = useProjectsQuery(businessId);
 
   return (
     <div className="app-shell">
@@ -87,7 +80,7 @@ export default function AppShell() {
           </div>
 
           <div className="app-user-card">
-            <div className="app-user-avatar">{(business?.company_name || '?').trim().charAt(0).toUpperCase()}</div>
+            <div className="app-user-avatar">{firstLetterInitial(business?.company_name)}</div>
             <div className="app-user-info">
               <div className="app-user-name">{business?.company_name || 'העסק שלי'}</div>
               <div className="app-user-links">
