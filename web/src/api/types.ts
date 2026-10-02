@@ -92,15 +92,22 @@ export interface Customer {
   notes: string | null;
 }
 
+export interface ProjectListItemOpening {
+  opening_type_name_snapshot: string;
+  quantity: number;
+}
+
 export interface ProjectListItem {
   id: string;
   customer_id: string | null;
   customer_name: string | null;
+  customer_address: string | null;
   quote_number: number;
   title: string;
   status: ProjectStatus;
   total: number;
   created_at: string;
+  openings: ProjectListItemOpening[];
 }
 
 export interface OpeningAccessoryLine {
